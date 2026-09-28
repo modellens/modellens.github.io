@@ -4444,7 +4444,7 @@ class StructureExtractor {
   _inferTopLevelShape(key) {
     const k = key.toLowerCase();
     const H = this.H, V = this.V;
-    if (k === 'embed_tokens' || k === 'embedding' || k === 'token embedding' || k === 'embeddings') return { shape: [V, H], params: V * H, details: { 'shape': `${V}×${H}`, 'vocab_size': V, 'hidden_size': H }};
+    if (k === 'embed_tokens' || k === 'embedding' || k === 'token embedding' || k === 'embeddings' || k === 'embed') return { shape: [V, H], params: V * H, details: { 'shape': `${V}×${H}`, 'vocab_size': V, 'hidden_size': H }};
     if (k === 'lm_head' || k === 'head' || k === 'output projection') {
       if (this.tieEmbed) return { shape: [H, V], params: 0, details: { 'shape': `${H}×${V}`, 'vocab_size': V, 'hidden_size': H, 'tied_to': 'model.embed_tokens' }};
       return { shape: [H, V], params: H * V, details: { 'shape': `${H}×${V}`, 'vocab_size': V, 'hidden_size': H }};
@@ -5107,6 +5107,7 @@ class StructureExtractor {
   _classify(key, depth) {
     const map = {
       'embed_tokens': { type: 'embedding', icon: '🔤' },
+      'embed': { type: 'embedding', icon: '🔤' },
       'lm_head': { type: 'output', icon: '🎯' },
       'head': { type: 'output', icon: '🎯' },
       'visual': { type: 'vision', icon: '👁' },
@@ -5281,6 +5282,7 @@ class StructureExtractor {
       'merger': 'Merger',
       'blocks': 'Blocks', 'encoder': 'Encoder', 'embeddings': 'Embeddings',
       'embed_tokens': 'Embeddings',
+      'embed': 'Embeddings',
       'lm_head': 'LM Head', 'fc': 'FC',
       'pre_layrnorm': 'Pre-LayerNorm', 'pre_layernorm': 'Pre-LayerNorm',
       'post_layrnorm': 'Post-LayerNorm', 'post_layernorm': 'Post-LayerNorm',
