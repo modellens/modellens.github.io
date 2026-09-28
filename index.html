@@ -3791,9 +3791,12 @@ class StructureExtractor {
     const otherKeys = [];
 
     for (const key of keys) {
-      if (key.startsWith('language_model.') || key.startsWith('model.')) {
+      // Check more specific prefixes first to avoid model.visual.* being caught by model.*
+      if (key.startsWith('model.visual.') || key.startsWith('model.vision_tower.') || key.startsWith('model.multi_modal_projector.') || key.startsWith('model.projector.') || key.startsWith('model.patch_merge_mlp.')) {
+        visionKeys.push(key);
+      } else if (key.startsWith('model.language_model.') || key.startsWith('language_model.') || key.startsWith('model.')) {
         langKeys.push(key);
-      } else if (key.startsWith('vision_tower.') || key.startsWith('visual.') || key.startsWith('model.visual.')) {
+      } else if (key.startsWith('vision_tower.') || key.startsWith('visual.')) {
         visionKeys.push(key);
       } else if (key.startsWith('multi_modal_projector.') || key.startsWith('patch_merge_mlp.') || key.startsWith('projector.')) {
         projectorKeys.push(key);
@@ -3802,10 +3805,10 @@ class StructureExtractor {
       }
     }
 
-    // Build language model trie (strip "language_model." prefix)
+    // Build language model trie (strip "language_model." and/or "model." prefix)
     const langRoot = { children: {}, isLeaf: false };
     for (const key of langKeys) {
-      const stripped = key.replace(/^language_model\./, '').replace(/^model\./, '');
+      const stripped = key.replace(/^model\.language_model\./, '').replace(/^language_model\./, '').replace(/^model\./, '');
       const parts = stripped.split('.');
       let node = langRoot;
       for (const p of parts) {
@@ -3849,6 +3852,30 @@ class StructureExtractor {
     // Add language model subtree
     tree.children.push(langTree);
 
+    // Add any other top-level tensors (lm_head, norm, etc.) that were not
+    // classified into language_model/vision/projector groups
+    if (otherKeys.length > 0) {
+      const otherRoot = { children: {}, isLeaf: false };
+      for (const key of otherKeys) {
+        const parts = key.split('.');
+        let node = otherRoot;
+        for (const p of parts) {
+          if (!node.children[p]) node.children[p] = { children: {}, isLeaf: false };
+          node = node.children[p];
+        }
+        node.isLeaf = true;
+        node.shard = wm[key];
+      }
+      const otherTree = this._trieToNode('Other', otherRoot, '', 0);
+      this._flattenShells(otherTree);
+      // Merge recognized children directly into tree, skip the "Other" wrapper
+      if (otherTree.children && otherTree.children.length > 0) {
+        for (const child of otherTree.children) {
+          tree.children.push(child);
+        }
+      }
+    }
+
     return tree;
   }
 
@@ -3868,8 +3895,8 @@ class StructureExtractor {
     // Build vision trie
     const visRoot = { children: {}, isLeaf: false };
     for (const key of visionKeys) {
-      // Strip "vision_tower." or "visual." prefix
-      const stripped = key.replace(/^vision_tower\./, '').replace(/^visual\./, '').replace(/^model\.visual\./, '');
+      // Strip vision prefixes (order matters: longer prefixes first)
+      const stripped = key.replace(/^model\.vision_tower\./, '').replace(/^model\.visual\./, '').replace(/^model\.multi_modal_projector\./, '').replace(/^model\.projector\./, '').replace(/^model\.patch_merge_mlp\./, '').replace(/^vision_tower\./, '').replace(/^visual\./, '').replace(/^multi_modal_projector\./, '').replace(/^projector\./, '').replace(/^patch_merge_mlp\./, '');
       const parts = stripped.split('.');
       let node = visRoot;
       for (const p of parts) {
@@ -4091,7 +4118,7 @@ class StructureExtractor {
     // Build trie from projector keys
     const projRoot = { children: {}, isLeaf: false };
     for (const key of projectorKeys) {
-      const stripped = key.replace(/^multi_modal_projector\./, '').replace(/^patch_merge_mlp\./, '').replace(/^projector\./, '');
+      const stripped = key.replace(/^model\.multi_modal_projector\./, '').replace(/^model\.projector\./, '').replace(/^model\.patch_merge_mlp\./, '').replace(/^multi_modal_projector\./, '').replace(/^patch_merge_mlp\./, '').replace(/^projector\./, '');
       const parts = stripped.split('.');
       let node = projRoot;
       for (const p of parts) {
