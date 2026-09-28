@@ -4469,7 +4469,7 @@ class StructureExtractor {
     // Detect attention sub-type from tensor names (safetensors ground truth)
     const hasQKVLora = childKeys.some(k => {
       const sub = trieNode.children[k];
-      return sub.children && (sub.children.q_a_proj || sub.children.q_a_layernorm || sub.children.kv_a_proj_with_mqa || sub.children.q_a_layernorm);
+      return sub.children && (sub.children.q_a_proj || sub.children.q_a_layernorm || sub.children.kv_a_proj_with_mqa || sub.children.wq_a || sub.children.wq_b || sub.children.wkv);
     });
     const hasIndexerTrie = childKeys.some(k => {
       const sub = trieNode.children[k];
@@ -4556,9 +4556,10 @@ class StructureExtractor {
       this._setLeafParams(childNode, idx, key, isLinear, isLowRankDSA, isMoELayer, effI);
 
       // MoE: mark experts as layer group
-      if (key === 'experts' || key === 'block_sparse_moe' || key === 'sparse_moe') {
-        // For block_sparse_moe, the experts are nested inside
-        const expContainer = key === 'block_sparse_moe' || key === 'sparse_moe'
+      // V4.1 uses 'ffn' as the MoE container (contains experts + gate + shared_experts)
+      if (key === 'experts' || key === 'block_sparse_moe' || key === 'sparse_moe' || (key === 'ffn' && child.children && child.children.experts)) {
+        // For block_sparse_moe/sparse_moe/ffn, the experts are nested inside
+        const expContainer = (key === 'block_sparse_moe' || key === 'sparse_moe' || key === 'ffn')
           ? (child.children?.experts || child.children)
           : child.children;
         const expNums = Object.keys(expContainer || {}).filter(k => /^\d+$/.test(k));
@@ -4621,11 +4622,12 @@ class StructureExtractor {
     // input_layernorm → self_attn → post_attention_layernorm → mlp/block_sparse_moe → (optional: block_post_layernorm)
     // MTP layer adds: eh_proj, enorm, hnorm, shared_head, embed_tokens at the end (output side)
     const order = [
-      'input_layernorm', 'norm1', 'self_attn', 'linear_attn', 'attn_mhc_module',
-      'post_attention_layernorm', 'norm2', 'mlp', 'feed_forward', 'block_sparse_moe', 'sparse_moe', 'mlp_mhc_module',
+      'input_layernorm', 'norm1', 'attn_norm', 'self_attn', 'attn', 'linear_attn', 'attn_mhc_module',
+      'post_attention_layernorm', 'norm2', 'ffn_norm', 'mlp', 'ffn', 'feed_forward', 'block_sparse_moe', 'sparse_moe', 'mlp_mhc_module',
       'block_post_layernorm',
+      'engram',
       // MTP-specific (output side)
-      'embed_tokens', 'eh_proj', 'enorm', 'hnorm', 'shared_head',
+      'embed_tokens', 'eh_proj', 'enorm', 'hnorm', 'shared_head', 'main_norm', 'main_proj',
       // Extra fallback for anything else
     ];
     const keyOrder = {};
@@ -4650,6 +4652,7 @@ class StructureExtractor {
     let total = 0;
     // Track shared_experts to count once, not per-tensor
     let sharedExpDone = false;
+    let engramDone = false;
     for (const t of tensors) {
       // Skip quantization scales and bias tensors — not weight params
       if (t.endsWith('weight_scale_inv') || t.endsWith('e_score_correction_bias') ||
@@ -4665,10 +4668,15 @@ class StructureExtractor {
 
       if (isLowRank) {
         // DSA / MLA low-rank attention — precise formulas from config
-        if (modName === 'q_a_proj' || fullPath.includes('q_a_proj')) total += H * this.qLora;
-        else if (modName === 'q_b_proj' || fullPath.includes('q_b_proj')) total += this.qLora * A * (this.qkNope + this.qkRope);
+        // V4/V4.1 naming: wq_a, wq_b, wkv, wo_a, wo_b
+        // V3 naming: q_a_proj, q_b_proj, kv_a_proj_with_mqa, kv_b_proj, o_proj
+        if (modName === 'q_a_proj' || fullPath.includes('q_a_proj') || modName === 'wq_a' || fullPath.includes('wq_a')) total += H * this.qLora;
+        else if (modName === 'q_b_proj' || fullPath.includes('q_b_proj') || modName === 'wq_b' || fullPath.includes('wq_b')) {
+          if (!fullPath.includes('indexer')) total += this.qLora * A * (this.qkNope + this.qkRope);
+        }
         else if (fullPath.includes('kv_a_proj')) total += H * (this.kvLora + this.qkRope);
         else if (fullPath.includes('kv_b_proj')) total += this.kvLora * A * (this.qkNope + this.vHead);
+        else if (modName === 'wkv' || fullPath.includes('wkv.')) total += H * this.headDim;
         else if ((modName === 'o_proj' || fullPath.includes('o_proj')) && !fullPath.includes('wo_')) total += A * (this.qkNope + this.qkRope) * H;
         else if (fullPath.includes('q_a_layernorm')) total += this.qLora;
         else if (fullPath.includes('kv_a_layernorm')) total += this.kvLora;
@@ -4695,7 +4703,13 @@ class StructureExtractor {
         else if (fullPath.includes('shared_head')) total += H * H + H;
         // DeepSeek-V4 grouped output (wo_a / wo_b)
         else if (modName === 'wo_a' || fullPath.includes('wo_a')) total += A * hd * this.oLoraR;
-        else if (modName === 'wo_b' || fullPath.includes('wo_b')) total += this.oLoraR * H;
+        else if (modName === 'wo_b' || fullPath.includes('wo_b')) total += this.oLoraR * (this.oGroups || 1) * H;
+        // Attention sink (V4.1: attn_sink tensor)
+        else if (fullPath.includes('attn_sink')) total += A;
+        // HC modules (V4.1: hc_attn_fn/hc_ffn_fn are [24, H*hcMult])
+        else if (fullPath.includes('hc_attn_fn') || fullPath.includes('hc_ffn_fn')) total += 24 * H * (this.hcMult || 4);
+        else if (fullPath.includes('hc_attn_base') || fullPath.includes('hc_ffn_base')) total += 24;
+        else if (fullPath.includes('hc_attn_scale') || fullPath.includes('hc_ffn_scale')) total += 3;
         // Standard MLP (inside MoE experts or shared expert)
         else if (modName === 'gate_proj') total += H * I;
         else if (modName === 'up_proj') total += H * I;
@@ -4709,6 +4723,12 @@ class StructureExtractor {
         }
         else if (modName === 'e_proj') total += H * H;
         else if (fullPath.includes('hc_head') || fullPath.includes('hc_attn') || fullPath.includes('hc_ffn')) total += H;
+        // Engram embedding (V4.1: massive n-gram memory table)
+        else if (fullPath.includes('engram') && (modName === 'weight' || modName === 'embed')) {
+          if (!engramDone) { total += (this.config.engram_vocab_size || 0) * (this.config.engram_head_dim || 0); engramDone = true; }
+        }
+        else if (fullPath.includes('engram') && modName === 'wkv') total += (this.config.engram_n_heads || 8) * (this.config.engram_head_dim || 256) * (this.config.engram_head_dim || 256) * 2;
+        else if (fullPath.includes('engram') && (modName === 'q_weight' || modName === 'k_weight')) total += (this.config.engram_n_heads || 8) * (this.config.engram_head_dim || 256);
       } else if (isLinear) {
         // Mamba SSM linear attention
         const linKH = this.linKH || A, linVH = this.linVH || A;
@@ -4759,8 +4779,23 @@ class StructureExtractor {
         else if (fullPath.includes('branch_alpha') || fullPath.includes('branch_beta')) total += this.mhcStreams;
         else if (modName === 'e_proj') total += H * H;
         else if (modName === 'wo_a' || fullPath.includes('wo_a')) total += A * hd * this.oLoraR;
-        else if (modName === 'wo_b' || fullPath.includes('wo_b')) total += this.oLoraR * H;
+        else if (modName === 'wo_b' || fullPath.includes('wo_b')) total += this.oLoraR * (this.oGroups || 1) * H;
+        else if (fullPath.includes('attn_sink')) total += A;
+        // HC modules (V4.1: hc_attn_fn/hc_ffn_fn are [24, H*hcMult])
+        else if (fullPath.includes('hc_attn_fn') || fullPath.includes('hc_ffn_fn')) total += 24 * H * (this.hcMult || 4);
+        else if (fullPath.includes('hc_attn_base') || fullPath.includes('hc_ffn_base')) total += 24;
+        else if (fullPath.includes('hc_attn_scale') || fullPath.includes('hc_ffn_scale')) total += 3;
+        // V4.1 low-rank attention fallback (when isLowRank not detected but wq_a/wq_b/wkv exist)
+        else if (modName === 'wq_a' || fullPath.includes('wq_a')) total += H * this.qLora;
+        else if (modName === 'wq_b' || fullPath.includes('wq_b')) { if (!fullPath.includes('indexer')) total += this.qLora * A * (this.qkNope + this.qkRope); }
+        else if (modName === 'wkv' || fullPath.includes('wkv.')) total += H * this.headDim;
         else if (fullPath.includes('hc_head') || fullPath.includes('hc_attn') || fullPath.includes('hc_ffn')) total += H;
+        // Engram embedding (V4.1: massive n-gram memory table)
+        else if (fullPath.includes('engram') && (modName === 'weight' || modName === 'embed')) {
+          if (!engramDone) { total += (this.config.engram_vocab_size || 0) * (this.config.engram_head_dim || 0); engramDone = true; }
+        }
+        else if (fullPath.includes('engram') && modName === 'wkv') total += (this.config.engram_n_heads || 8) * (this.config.engram_head_dim || 256) * (this.config.engram_head_dim || 256) * 2;
+        else if (fullPath.includes('engram') && (modName === 'q_weight' || modName === 'k_weight')) total += (this.config.engram_n_heads || 8) * (this.config.engram_head_dim || 256);
       }
     }
     return total;
@@ -4948,15 +4983,19 @@ class StructureExtractor {
       if (name.includes('shared_expert')) childI = this.sharedExpI || I;
       // Low-rank DSA attention projections
       if (isLowRank) {
-        if (name.includes('q_a_proj')) child.params = H * this.qLora;
-        else if (name.includes('q_b_proj')) child.params = this.qLora * A * (this.qkNope + this.qkRope);
+        if (name.includes('q_a_proj') || name.includes('wq_a')) child.params = H * this.qLora;
+        else if (name.includes('q_b_proj') || name.includes('wq_b')) {
+          if (!name.includes('indexer')) child.params = this.qLora * A * (this.qkNope + this.qkRope);
+        }
         else if (name.includes('kv_a_proj')) child.params = H * (this.kvLora + this.qkRope);
         else if (name.includes('kv_b_proj')) child.params = this.kvLora * A * (this.qkNope + this.vHead);
         else if (name.includes('o_proj') && !name.includes('wo')) child.params = A * (this.qkNope + this.qkRope) * H;
         else if (name.includes('wo_a')) child.params = A * hd * this.oLoraR;
-        else if (name.includes('wo_b')) child.params = this.oLoraR * H;
+        else if (name.includes('wo_b')) child.params = this.oLoraR * (this.oGroups || 1) * H;
         else if (name.includes('q_a_layernorm')) child.params = this.qLora;
         else if (name.includes('kv_a_layernorm')) child.params = this.kvLora;
+        else if (name.includes('wkv')) child.params = H * this.headDim;
+        else if (name.includes('attn_sink')) child.params = A;
       } else if (!isLinear) {
         // Standard attention
         if (name === 'q_proj' || name.includes('q_proj')) child.params = H * (A * hd);
@@ -4964,7 +5003,11 @@ class StructureExtractor {
         else if (name === 'v_proj' || name.includes('v_proj')) child.params = H * (KV * hd);
         else if (name === 'o_proj' || name.includes('o_proj')) child.params = (A * hd) * H;
         else if (name === 'wo_a') child.params = A * hd * this.oLoraR;
-        else if (name === 'wo_b') child.params = this.oLoraR * H;
+        else if (name === 'wo_b') child.params = this.oLoraR * (this.oGroups || 1) * H;
+        // V4.1 low-rank fallback when isLowRank not detected
+        else if (name === 'wq_a') child.params = H * this.qLora;
+        else if (name === 'wq_b' && !name.includes('indexer')) child.params = this.qLora * A * (this.qkNope + this.qkRope);
+        else if (name === 'wkv') child.params = H * this.headDim;
         // QK norms (MiniMax-M3: per-head)
         else if (name === 'q_norm' || name.includes('q_norm')) child.params = A * hd;
         else if (name === 'k_norm' || name.includes('k_norm')) child.params = KV * hd;
@@ -5215,6 +5258,19 @@ class StructureExtractor {
       'wq_b': { type: 'attention', icon: '🔍' },
       'wk': { type: 'attention', icon: '🔑' },
       'weights_proj': { type: 'attention', icon: '📤' },
+      'engram': { type: 'other', icon: '🧠' },
+      'wkv': { type: 'attention', icon: '🔑' },
+      'wq_a': { type: 'attention', icon: '❓' },
+      'attn_sink': { type: 'other', icon: '📍' },
+      'compressor': { type: 'attention', icon: '🗜' },
+      'main_proj': { type: 'output', icon: '📤' },
+      'main_norm': { type: 'norm', icon: '📊' },
+      'hc_attn_base': { type: 'other', icon: '🔗' },
+      'hc_attn_fn': { type: 'other', icon: '🔗' },
+      'hc_attn_scale': { type: 'other', icon: '🔗' },
+      'hc_ffn_base': { type: 'other', icon: '🔗' },
+      'hc_ffn_fn': { type: 'other', icon: '🔗' },
+      'hc_ffn_scale': { type: 'other', icon: '🔗' },
     };
     return map[key] || { type: 'module', icon: '📦' };
   }
@@ -5255,6 +5311,15 @@ class StructureExtractor {
       'index_k_proj': { name: 'Index K Proj', type: 'attention', icon: '🔑' },
       'index_q_norm': { name: 'Index Q Norm', type: 'norm', icon: '📊' },
       'index_k_norm': { name: 'Index K Norm', type: 'norm', icon: '📊' },
+      // V4.1 naming
+      'attn': { name: attnLabel, type: 'attention', icon: '👁' },
+      'attn_norm': { name: 'Input RMSNorm', type: 'norm', icon: '📊' },
+      'ffn_norm': { name: 'Post-Attn RMSNorm', type: 'norm', icon: '📊' },
+      'engram': { name: 'Engram (N-gram Memory)', type: 'other', icon: '🧠' },
+      'ffn': { name: hasMoE ? 'MoE MLP' : 'MLP (SwiGLU)', type: 'ffn', icon: '🔀' },
+      'compressor': { name: 'Compressor', type: 'attention', icon: '🗜' },
+      'main_proj': { name: 'Main Projection', type: 'output', icon: '📤' },
+      'main_norm': { name: 'Main Norm', type: 'norm', icon: '📊' },
     };
     return map[key] || { name: this._humanize(key), type: 'module', icon: '📦' };
   }
