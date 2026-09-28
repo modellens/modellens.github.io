@@ -940,12 +940,13 @@ class SafetensorsParser {
     const groups = {};    // e.g. model.language_model, model.visual, mtp
 
     for (const key of Object.keys(weightMap)) {
-      // Match patterns like model.language_model.layers.0.xxx.yyy
+      // Match patterns like model.language_model.layers.0.xxx.yyy OR layers.0.xxx (DeepSeek-V4 style)
       const layerMatch = key.match(/^(.+?)\.layers\.(\d+)\.(.+)$/);
-      if (layerMatch) {
-        const prefix = layerMatch[1]; // e.g. model.language_model
-        const idx = parseInt(layerMatch[2]);
-        const suffix = layerMatch[3]; // e.g. linear_attn.conv1d.weight
+      const bareLayerMatch = !layerMatch ? key.match(/^layers\.(\d+)\.(.+)$/) : null;
+      if (layerMatch || bareLayerMatch) {
+        const prefix = layerMatch ? layerMatch[1] : ''; // e.g. model.language_model or '' (V4)
+        const idx = parseInt(layerMatch ? layerMatch[2] : bareLayerMatch[1]);
+        const suffix = layerMatch ? layerMatch[3] : bareLayerMatch[2]; // e.g. linear_attn.conv1d.weight
         if (!layerInfo[idx]) layerInfo[idx] = { prefix, modules: new Set() };
         layerInfo[idx].modules.add(suffix);
         if (!groups[prefix]) groups[prefix] = { layers: new Set(), other: [] };
@@ -6454,11 +6455,11 @@ function renderResult(config, meta, modelId, safetensorsData = null, rawIndexDat
       full_attn_layers: safetensorsData.fullLayerCount,
       linear_attn_layers: safetensorsData.linearLayerCount,
       layer_type_pattern: Object.entries(safetensorsData.layerTypes).slice(0, 8).map(([i, t]) => `L${i}:${t}`).join(', ') + (safetensorsData.numLayers > 8 ? '...' : ''),
-      linear_attn_tensors: safetensorsData.linearAttnTensors,
-      full_attn_tensors: safetensorsData.fullAttnTensors,
-      mlp_tensors: safetensorsData.mlpTensors,
-      norm_tensors: safetensorsData.normTensors,
-      top_level_tensors: safetensorsData.topLevelTensors,
+      linear_attn_tensors: safetensorsData.linearAttnTensors.slice(0, 30),
+      full_attn_tensors: safetensorsData.fullAttnTensors.slice(0, 30),
+      mlp_tensors: safetensorsData.mlpTensors.slice(0, 30),
+      norm_tensors: safetensorsData.normTensors.slice(0, 30),
+      top_level_tensors: safetensorsData.topLevelTensors.slice(0, 50),
       has_mtp: safetensorsData.hasMTP,
       has_vision: safetensorsData.hasVision,
     }, null, 2);
