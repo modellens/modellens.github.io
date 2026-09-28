@@ -1559,6 +1559,30 @@ class ModelParser {
     const routerP = H * numExperts;
     const sharedGateP = H;
     const total = numExperts * perExp + sharedP + routerP + sharedGateP;
+    // For large expert counts, avoid creating individual expert objects (causes GC pressure / freeze)
+    const MAX_INDIVIDUAL_EXPERTS = 64;
+    const expertChildren = numExperts > MAX_INDIVIDUAL_EXPERTS
+      ? Array.from({ length: MAX_INDIVIDUAL_EXPERTS }, (_, ei) => ({
+          name: `Expert ${ei}`, type: 'ffn', icon: '🔧', params: perExp,
+          details: { 'gate_proj': `${H} x ${I}`, 'up_proj': `${H} x ${I}`, 'down_proj': `${I} x ${H}`, 'bias': false },
+          children: [
+            { name: 'gate_proj', type: 'ffn', icon: '🚪', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}`, 'bias': false } },
+            { name: 'up_proj', type: 'ffn', icon: '⬆', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}`, 'bias': false } },
+            { name: 'down_proj', type: 'ffn', icon: '⬇', shape: [I, H], params: I * H, details: { 'shape': `${I} x ${H}`, 'bias': false } },
+          ]
+        })).concat([{
+          name: `... (${numExperts - MAX_INDIVIDUAL_EXPERTS} more experts)`, type: 'moe', icon: '⚖', params: (numExperts - MAX_INDIVIDUAL_EXPERTS) * perExp,
+          details: { 'note': `Each expert has identical structure: gate [${H}x${I}], up [${H}x${I}], down [${I}x${H}]`, 'per_expert_params': perExp }
+        }])
+      : Array.from({ length: numExperts }, (_, ei) => ({
+          name: `Expert ${ei}`, type: 'ffn', icon: '🔧', params: perExp,
+          details: { 'gate_proj': `${H} x ${I}`, 'up_proj': `${H} x ${I}`, 'down_proj': `${I} x ${H}`, 'bias': false },
+          children: [
+            { name: 'gate_proj', type: 'ffn', icon: '🚪', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}`, 'bias': false } },
+            { name: 'up_proj', type: 'ffn', icon: '⬆', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}`, 'bias': false } },
+            { name: 'down_proj', type: 'ffn', icon: '⬇', shape: [I, H], params: I * H, details: { 'shape': `${I} x ${H}`, 'bias': false } },
+          ]
+        }));
     return {
       name: 'MoE MLP', type: 'ffn', icon: '🔀', params: total,
       details: {
@@ -1576,15 +1600,7 @@ class ModelParser {
           name: `Experts (${numExperts})`, type: 'moe', icon: '🎲',
           isLayerGroup: true, layerCount: numExperts, params: numExperts * perExp,
           details: { 'per_expert': perExp, 'gate_proj': `${H} x ${I}`, 'up_proj': `${H} x ${I}`, 'down_proj': `${I} x ${H}` },
-          children: Array.from({ length: numExperts }, (_, ei) => ({
-            name: `Expert ${ei}`, type: 'ffn', icon: '🔧', params: perExp,
-            details: { 'gate_proj': `${H} x ${I}`, 'up_proj': `${H} x ${I}`, 'down_proj': `${I} x ${H}`, 'bias': false },
-            children: [
-              { name: 'gate_proj', type: 'ffn', icon: '🚪', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}`, 'bias': false } },
-              { name: 'up_proj', type: 'ffn', icon: '⬆', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}`, 'bias': false } },
-              { name: 'down_proj', type: 'ffn', icon: '⬇', shape: [I, H], params: I * H, details: { 'shape': `${I} x ${H}`, 'bias': false } },
-            ]
-          }))
+          children: expertChildren
         },
         {
           name: 'Shared Expert', type: 'ffn', icon: '🤝', params: sharedP,
