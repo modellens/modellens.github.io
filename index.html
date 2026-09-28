@@ -6247,11 +6247,16 @@ function renderResult(config, meta, modelId, safetensorsData = null, rawIndexDat
   // Unknown VLM models also go through StructureExtractor (it can build vision/
   // projector/language subtrees from real tensors).
   const knownTypes = ['bert','roberta','deberta','deberta-v2','gpt2','gpt_neo','gptj','llama','mistral','qwen2','qwen','qwen3','qwen3_5','qwen3_5_text','qwen3_5_moe','qwen4_exp','qwen4_exp_text','t5','mt5','deepseek_v4','deepseek_v3','kimi_k2','kimi_k25','kimi_linear','kimi_k3','glm_moe_dsa','openpangu_v2'];
+  // Known model types whose dedicated parser does NOT handle VLM (no vision/projector subtree logic).
+  // When such a type is detected as VLM, fall back to StructureExtractor which can build
+  // vision/projector/language subtrees from real safetensors tensors.
+  const vlmUnsupportedTypes = ['glm_moe_dsa','openpangu_v2','deepseek_v4'];
   const isKnown = knownTypes.includes(normalizedConfig.model_type || '');
   const isVLM = !!(normalizedConfig._isMultimodal || normalizedConfig.text_config);
+  const isVLMUnsupported = isVLM && vlmUnsupportedTypes.includes(normalizedConfig.model_type || '');
 
   let tree;
-  if (!isKnown && rawIndexData && rawIndexData.weight_map) {
+  if ((!isKnown || isVLMUnsupported) && rawIndexData && rawIndexData.weight_map) {
     const extractor = new StructureExtractor(normalizedConfig, safetensorsData, rawIndexData);
     tree = extractor.extract();
   } else {
