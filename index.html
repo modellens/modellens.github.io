@@ -1086,7 +1086,7 @@ class ModelParser {
         tree = this._parseDeepSeekV3Like(); break;
       case 'kimi_linear': case 'kimi_k3':
         tree = this._parseKimiLinearLike(); break;
-      case 'deepseek_v4':
+      case 'deepseek_v4': case 'deepseek_v41':
         tree = this._parseDeepSeekV4(); break;
       case 'glm_moe_dsa':
         tree = this._parseGLM5(); break;
@@ -6273,11 +6273,11 @@ function renderResult(config, meta, modelId, safetensorsData = null, rawIndexDat
   // Only use generic StructureExtractor for unknown model types with safetensors.
   // Unknown VLM models also go through StructureExtractor (it can build vision/
   // projector/language subtrees from real tensors).
-  const knownTypes = ['bert','roberta','deberta','deberta-v2','gpt2','gpt_neo','gptj','llama','mistral','qwen2','qwen','qwen3','qwen3_5','qwen3_5_text','qwen3_5_moe','qwen4_exp','qwen4_exp_text','t5','mt5','deepseek_v4','deepseek_v3','kimi_k2','kimi_k25','kimi_linear','kimi_k3','glm_moe_dsa','openpangu_v2'];
+  const knownTypes = ['bert','roberta','deberta','deberta-v2','gpt2','gpt_neo','gptj','llama','mistral','qwen2','qwen','qwen3','qwen3_5','qwen3_5_text','qwen3_5_moe','qwen4_exp','qwen4_exp_text','t5','mt5','deepseek_v4','deepseek_v41','deepseek_v3','kimi_k2','kimi_k25','kimi_linear','kimi_k3','glm_moe_dsa','openpangu_v2'];
   // Known model types whose dedicated parser does NOT handle VLM (no vision/projector subtree logic).
   // When such a type is detected as VLM, fall back to StructureExtractor which can build
   // vision/projector/language subtrees from real safetensors tensors.
-  const vlmUnsupportedTypes = ['glm_moe_dsa','openpangu_v2','deepseek_v4'];
+  const vlmUnsupportedTypes = ['glm_moe_dsa','openpangu_v2','deepseek_v4','deepseek_v41'];
   const isKnown = knownTypes.includes(normalizedConfig.model_type || '');
   const isVLM = !!(normalizedConfig._isMultimodal || normalizedConfig.text_config);
   const isVLMUnsupported = isVLM && vlmUnsupportedTypes.includes(normalizedConfig.model_type || '');
