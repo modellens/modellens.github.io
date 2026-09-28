@@ -3792,14 +3792,19 @@ class StructureExtractor {
 
     for (const key of keys) {
       // Check more specific prefixes first to avoid model.visual.* being caught by model.*
+      // GLM-5.3 style: model.visual.*, model.language_model.*
+      // V4.1 style: vision.*, aligner.*, layers.*, embed, head, norm, mtp
       if (key.startsWith('model.visual.') || key.startsWith('model.vision_tower.') || key.startsWith('model.multi_modal_projector.') || key.startsWith('model.projector.') || key.startsWith('model.patch_merge_mlp.')) {
         visionKeys.push(key);
       } else if (key.startsWith('model.language_model.') || key.startsWith('language_model.') || key.startsWith('model.')) {
         langKeys.push(key);
-      } else if (key.startsWith('vision_tower.') || key.startsWith('visual.')) {
+      } else if (key.startsWith('vision_tower.') || key.startsWith('visual.') || key.startsWith('vision.')) {
         visionKeys.push(key);
-      } else if (key.startsWith('multi_modal_projector.') || key.startsWith('patch_merge_mlp.') || key.startsWith('projector.')) {
+      } else if (key.startsWith('multi_modal_projector.') || key.startsWith('patch_merge_mlp.') || key.startsWith('projector.') || key.startsWith('aligner.')) {
         projectorKeys.push(key);
+      } else if (key.startsWith('layers.') || key === 'embed.weight' || key === 'embed_tokens.weight' || key.startsWith('embed.') || key === 'head.weight' || key === 'lm_head.weight' || key === 'norm.weight' || key.startsWith('mtp.')) {
+        // V4.1-style bare language model keys (no model. prefix)
+        langKeys.push(key);
       } else {
         otherKeys.push(key);
       }
@@ -3896,7 +3901,7 @@ class StructureExtractor {
     const visRoot = { children: {}, isLeaf: false };
     for (const key of visionKeys) {
       // Strip vision prefixes (order matters: longer prefixes first)
-      const stripped = key.replace(/^model\.vision_tower\./, '').replace(/^model\.visual\./, '').replace(/^model\.multi_modal_projector\./, '').replace(/^model\.projector\./, '').replace(/^model\.patch_merge_mlp\./, '').replace(/^vision_tower\./, '').replace(/^visual\./, '').replace(/^multi_modal_projector\./, '').replace(/^projector\./, '').replace(/^patch_merge_mlp\./, '');
+      const stripped = key.replace(/^model\.vision_tower\./, '').replace(/^model\.visual\./, '').replace(/^model\.multi_modal_projector\./, '').replace(/^model\.projector\./, '').replace(/^model\.patch_merge_mlp\./, '').replace(/^vision_tower\./, '').replace(/^visual\./, '').replace(/^vision\./, '').replace(/^multi_modal_projector\./, '').replace(/^projector\./, '').replace(/^patch_merge_mlp\./, '');
       const parts = stripped.split('.');
       let node = visRoot;
       for (const p of parts) {
@@ -4036,7 +4041,7 @@ class StructureExtractor {
       if (key === 'layer_norm1' || key === 'layer_norm2' || key === 'norm1' || key === 'norm2') {
         name = key === 'layer_norm1' || key === 'norm1' ? 'Norm 1' : 'Norm 2';
         type = 'norm'; icon = '📊';
-      } else if (key === 'self_attn' || key === 'attention') {
+      } else if (key === 'self_attn' || key === 'attention' || key === 'attn') {
         name = 'Attention'; type = 'attention'; icon = '⚡';
       } else if (key === 'mlp' || key === 'feed_forward') {
         name = 'MLP'; type = 'ffn'; icon = '🔀';
@@ -4045,12 +4050,13 @@ class StructureExtractor {
       childNode.type = type; childNode.icon = icon;
       childNode._trieKey = key;
       // Infer params and shapes for vision attention
-      if (key === 'self_attn' || key === 'attention') {
+      if (key === 'self_attn' || key === 'attention' || key === 'attn') {
         // CLIP-style: q_proj, k_proj, v_proj, out_proj (each with weight+bias)
+        // V4.1-style: wqkv (fused), wo
         childNode.params = 4 * H * H + 4 * H;
         childNode.shape = [H, H];
         childNode.details = { ...childNode.details, num_heads: numHeads, head_dim: headDim, has_bias: true, qkv: 'separate' };
-        // Set params on children (q_proj, k_proj, v_proj, out_proj)
+        // Set params on children (q_proj, k_proj, v_proj, out_proj, wqkv, wo)
         this._setViTAttentionParams(childNode, H);
       } else if (key === 'mlp' || key === 'feed_forward') {
         childNode.params = mlpParams;
@@ -4067,7 +4073,7 @@ class StructureExtractor {
 
     // Reorder: norm1 → attention → norm2 → mlp
     node.children.sort((a, b) => {
-      const order = ['layer_norm1', 'norm1', 'self_attn', 'attention', 'layer_norm2', 'norm2', 'mlp', 'feed_forward'];
+      const order = ['layer_norm1', 'norm1', 'self_attn', 'attention', 'attn', 'layer_norm2', 'norm2', 'mlp', 'feed_forward'];
       const ka = (a._trieKey || '').toLowerCase();
       const kb = (b._trieKey || '').toLowerCase();
       const ia = order.indexOf(ka);
@@ -4078,7 +4084,7 @@ class StructureExtractor {
     return node;
   }
 
-  // Set params on ViT attention children (q_proj, k_proj, v_proj, out_proj)
+  // Set params on ViT attention children (q_proj, k_proj, v_proj, out_proj, wqkv, wo)
   _setViTAttentionParams(parentNode, H) {
     if (!parentNode.children) return;
     for (const child of parentNode.children) {
@@ -4086,18 +4092,19 @@ class StructureExtractor {
       if (name === 'q_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
       else if (name === 'k_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
       else if (name === 'v_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
-      else if (name === 'out_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
-      else if (name === 'qkv' || name.includes('qkv')) { child.params = 3 * H * H; child.shape = [H, 3*H]; child.details = { ...child.details, weight: `${H}×${3*H}`, bias: `${3*H}`, note: 'fused qkv' }; }
+      else if (name === 'out_proj' || name === 'wo') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
+      else if (name === 'qkv' || name === 'wqkv' || name.includes('qkv')) { child.params = 3 * H * H; child.shape = [H, 3*H]; child.details = { ...child.details, weight: `${H}×${3*H}`, bias: `${3*H}`, note: 'fused qkv' }; }
     }
   }
 
-  // Set params on ViT MLP children (fc1, fc2)
+  // Set params on ViT MLP children (fc1, fc2, w1, w2, gate_proj, down_proj, up_proj)
   _setViTMLPParams(parentNode, H, I) {
     if (!parentNode.children) return;
     for (const child of parentNode.children) {
       const name = (child.name || '').toLowerCase();
-      if (name === 'fc1' || name.includes('fc1')) { child.params = H * I; child.shape = [H, I]; child.details = { ...child.details, weight: `${H}×${I}`, bias: `${I}` }; }
-      else if (name === 'fc2' || name.includes('fc2')) { child.params = I * H; child.shape = [I, H]; child.details = { ...child.details, weight: `${I}×${H}`, bias: `${H}` }; }
+      if (name === 'fc1' || name.includes('fc1') || name === 'w1' || name === 'gate_proj') { child.params = H * I; child.shape = [H, I]; child.details = { ...child.details, weight: `${H}×${I}`, bias: `${I}` }; }
+      else if (name === 'fc2' || name.includes('fc2') || name === 'w2' || name === 'down_proj') { child.params = I * H; child.shape = [I, H]; child.details = { ...child.details, weight: `${I}×${H}`, bias: `${H}` }; }
+      else if (name === 'up_proj') { child.params = H * I; child.shape = [H, I]; child.details = { ...child.details, weight: `${H}×${I}`, bias: `${I}` }; }
     }
   }
 
@@ -4118,7 +4125,7 @@ class StructureExtractor {
     // Build trie from projector keys
     const projRoot = { children: {}, isLeaf: false };
     for (const key of projectorKeys) {
-      const stripped = key.replace(/^model\.multi_modal_projector\./, '').replace(/^model\.projector\./, '').replace(/^model\.patch_merge_mlp\./, '').replace(/^multi_modal_projector\./, '').replace(/^patch_merge_mlp\./, '').replace(/^projector\./, '');
+      const stripped = key.replace(/^model\.multi_modal_projector\./, '').replace(/^model\.projector\./, '').replace(/^model\.patch_merge_mlp\./, '').replace(/^model\.aligner\./, '').replace(/^multi_modal_projector\./, '').replace(/^patch_merge_mlp\./, '').replace(/^projector\./, '').replace(/^aligner\./, '');
       const parts = stripped.split('.');
       let node = projRoot;
       for (const p of parts) {
