@@ -1077,7 +1077,7 @@ class ModelParser {
         tree = this._parseGPT2Like(); break;
       case 'llama': case 'mistral': case 'qwen2': case 'qwen':
         tree = this._parseLLaMALike(); break;
-      case 'qwen3': case 'qwen3_5': case 'qwen3_5_text': case 'qwen3_5_moe':
+      case 'qwen3': case 'qwen3_5': case 'qwen3_5_text': case 'qwen3_5_moe': case 'qwen4_exp': case 'qwen4_exp_text':
         tree = this._parseQwen3Like(); break;
       case 't5': case 'mt5':
         tree = this._parseT5Like(); break;
@@ -6229,7 +6229,7 @@ function renderResult(config, meta, modelId, safetensorsData = null, rawIndexDat
   // Only use generic StructureExtractor for unknown model types with safetensors.
   // Unknown VLM models also go through StructureExtractor (it can build vision/
   // projector/language subtrees from real tensors).
-  const knownTypes = ['bert','roberta','deberta','deberta-v2','gpt2','gpt_neo','gptj','llama','mistral','qwen2','qwen','qwen3','qwen3_5','qwen3_5_text','qwen3_5_moe','t5','mt5','deepseek_v4','deepseek_v3','kimi_k2','kimi_k25','kimi_linear','kimi_k3','glm_moe_dsa','openpangu_v2'];
+  const knownTypes = ['bert','roberta','deberta','deberta-v2','gpt2','gpt_neo','gptj','llama','mistral','qwen2','qwen','qwen3','qwen3_5','qwen3_5_text','qwen3_5_moe','qwen4_exp','qwen4_exp_text','t5','mt5','deepseek_v4','deepseek_v3','kimi_k2','kimi_k25','kimi_linear','kimi_k3','glm_moe_dsa','openpangu_v2'];
   const isKnown = knownTypes.includes(normalizedConfig.model_type || '');
   const isVLM = !!(normalizedConfig._isMultimodal || normalizedConfig.text_config);
 
