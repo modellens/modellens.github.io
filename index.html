@@ -6431,9 +6431,15 @@ let currentTree = null;
 let currentConfig = null;
 let renderer = null;
 
-async function visualizeModel() {
+async function visualizeModel(skipUrlUpdate) {
   const input = document.getElementById('modelInput').value.trim();
   if (!input) return;
+
+  // Sync model ID to URL (?model=...) so the link is shareable / bookmarkable
+  if (!skipUrlUpdate) {
+    const newUrl = `${location.pathname}?model=${encodeURIComponent(input)}`;
+    history.replaceState({ model: input }, '', newUrl);
+  }
 
   const useMirror = document.getElementById('useMirror').checked;
   const baseHost = useMirror ? 'https://hf-mirror.com' : 'https://huggingface.co';
@@ -6922,9 +6928,25 @@ if (savedTheme === 'dark') {
   themeToggle.textContent = '☀';
 }
 
-// Auto-load on page open
+// Auto-load on page open — read ?model= from URL if present
 window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  const urlModel = params.get('model');
+  if (urlModel) {
+    document.getElementById('modelInput').value = urlModel;
+  }
   visualizeModel();
+});
+
+// Browser back/forward — re-visualize the model from the URL
+window.addEventListener('popstate', () => {
+  const params = new URLSearchParams(location.search);
+  const urlModel = params.get('model');
+  const inputEl = document.getElementById('modelInput');
+  if (urlModel && urlModel !== inputEl.value) {
+    inputEl.value = urlModel;
+    visualizeModel(true);
+  }
 });
 </script>
 
