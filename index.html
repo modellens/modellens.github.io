@@ -3627,6 +3627,8 @@ class StructureExtractor {
     // Per-layer type arrays (config semantic → trie annotation)
     this.compressRatios = c.compress_ratios || [];       // DeepSeek-V4: CSA=4, HCA=128, SWA=0
     this.mlpLayerTypes = c.mlp_layer_types || [];          // GLM-5: 'dense'/'sparse'
+    // Engram tracking — instance-level to prevent double counting across layers
+    this._engramCounted = false;
     this.indexerTypes = c.indexer_types || [];             // GLM-5: 'full'/'shared'
     // Additional attention params
     this.oLoraR = c.o_lora_rank || 0;                     // DeepSeek-V4 grouped output
@@ -4693,7 +4695,8 @@ class StructureExtractor {
     let total = 0;
     // Track shared_experts to count once, not per-tensor
     let sharedExpDone = false;
-    let engramDone = false;
+    // Engram tracking is instance-level (this._engramCounted) to prevent
+    // double-counting when engram appears in multiple layers (V4.1: layers 1 & 14)
     // For MTP layers, use dspark MoE config if available
     const isMTPLayer = layerIdx >= this.L;
     const effectiveNumExperts = isMTPLayer ? (this.config.dspark_n_routed_experts || this.numExperts) : this.numExperts;
@@ -4771,7 +4774,7 @@ class StructureExtractor {
         // engram_num_embeddings is an array indexed by engram layer position
         // e.g. [384006168, 384016682] for layers 1 and 14
         else if (fullPath.includes('engram') && (modName === 'weight' || modName === 'embed')) {
-          if (!engramDone) {
+          if (!this._engramCounted) {
             const engramSizes = this.config.engram_num_embeddings || [];
             const eDim = this.config.engram_head_dim || 256;
             if (engramSizes.length > 0) {
@@ -4781,7 +4784,7 @@ class StructureExtractor {
               // Fallback: use engram_vocab_size
               total += (this.config.engram_vocab_size || 0) * eDim;
             }
-            engramDone = true;
+            this._engramCounted = true;
           }
         }
         else if (fullPath.includes('engram') && modName === 'wkv') total += (this.config.engram_n_heads || 8) * (this.config.engram_head_dim || 256) * (this.config.engram_head_dim || 256) * 2;
@@ -4850,7 +4853,7 @@ class StructureExtractor {
         // Engram embedding (V4.1: massive n-gram memory table)
         // engram_num_embeddings is an array indexed by engram layer position
         else if (fullPath.includes('engram') && (modName === 'weight' || modName === 'embed')) {
-          if (!engramDone) {
+          if (!this._engramCounted) {
             const engramSizes = this.config.engram_num_embeddings || [];
             const eDim = this.config.engram_head_dim || 256;
             if (engramSizes.length > 0) {
@@ -4858,7 +4861,7 @@ class StructureExtractor {
             } else {
               total += (this.config.engram_vocab_size || 0) * eDim;
             }
-            engramDone = true;
+            this._engramCounted = true;
           }
         }
         else if (fullPath.includes('engram') && modName === 'wkv') total += (this.config.engram_n_heads || 8) * (this.config.engram_head_dim || 256) * (this.config.engram_head_dim || 256) * 2;
