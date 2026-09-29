@@ -1198,7 +1198,7 @@ class ModelParser {
           'temporal_patch_size': vc.temporal_patch_size,
         },
         children: [
-          { name: 'Patch Embed', type: 'vision', icon: '🔲', params: vc.in_channels * vc.hidden_size * vc.patch_size * vc.patch_size, details: { 'in_channels': vc.in_channels, 'patch_size': vc.patch_size, 'temporal': vc.temporal_patch_size } },
+          { name: 'Patch Embed', type: 'vision', icon: '🔲', shape: [vc.in_channels * vc.patch_size * vc.patch_size, vc.hidden_size], params: vc.in_channels * vc.hidden_size * vc.patch_size * vc.patch_size, details: { 'in_channels': vc.in_channels, 'patch_size': vc.patch_size, 'temporal': vc.temporal_patch_size } },
           {
             name: `ViT Blocks (${vc.depth} layers)`,
             type: 'vision',
@@ -1209,7 +1209,7 @@ class ModelParser {
             details: { 'depth': vc.depth, 'hidden_size': vc.hidden_size, 'intermediate_size': vc.intermediate_size, 'num_heads': vc.num_heads, 'act': vc.hidden_act },
             children: Array.from({ length: vc.depth }, (_, i) => this._vitBlock(i, vc))
           },
-          { name: 'Merger (→ text hidden)', type: 'vision', icon: '🔗', params: vc.hidden_size * vc.out_hidden_size * vc.spatial_merge_size * vc.spatial_merge_size, details: { 'in': vc.hidden_size, 'out': vc.out_hidden_size, 'merge': vc.spatial_merge_size } },
+          { name: 'Merger (→ text hidden)', type: 'vision', icon: '🔗', shape: [vc.hidden_size * vc.spatial_merge_size * vc.spatial_merge_size, vc.out_hidden_size], params: vc.hidden_size * vc.out_hidden_size * vc.spatial_merge_size * vc.spatial_merge_size, details: { 'in': vc.hidden_size, 'out': vc.out_hidden_size, 'merge': vc.spatial_merge_size } },
         ]
       });
     }
@@ -2144,13 +2144,13 @@ class ModelParser {
       details: { 'd_model': H, 'attention_heads': A, 'd_kv': DKV, 'd_ff': I, 'has_cross_attn': true },
       children: [
         { name: 'Self-Attn RMSNorm', type: 'norm', icon: '📊', shape: [H], params: H, details: { 'eps': eps } },
-        { name: 'Self-Attention (causal)', type: 'attention', icon: '⚡', params: selfAttnParams, details: { 'causal': true, 'num_heads': A, 'no_bias': true } },
+        { name: 'Self-Attention (causal)', type: 'attention', icon: '⚡', shape: [H, A * DKV], params: selfAttnParams, details: { 'causal': true, 'num_heads': A, 'no_bias': true } },
         { name: 'Residual', type: 'norm', icon: '➕', params: 0, details: { 'type': 'add' } },
         { name: 'Cross-Attn RMSNorm', type: 'norm', icon: '📊', shape: [H], params: H, details: { 'eps': eps } },
-        { name: 'Cross-Attention', type: 'attention', icon: '🔗', params: crossAttnParams, details: { 'num_heads': A, 'no_bias': true, 'enc_dec': true } },
+        { name: 'Cross-Attention', type: 'attention', icon: '🔗', shape: [H, A * DKV], params: crossAttnParams, details: { 'num_heads': A, 'no_bias': true, 'enc_dec': true } },
         { name: 'Residual', type: 'norm', icon: '➕', params: 0, details: { 'type': 'add' } },
         { name: 'FFN RMSNorm', type: 'norm', icon: '📊', shape: [H], params: H, details: { 'eps': eps } },
-        { name: 'Dense FFN', type: 'ffn', icon: '🔀', params: ffnParams, details: { 'd_ff': I, 'gated': isGated } },
+        { name: 'Dense FFN', type: 'ffn', icon: '🔀', shape: [H, I], params: ffnParams, details: { 'd_ff': I, 'gated': isGated } },
         { name: 'Residual', type: 'norm', icon: '➕', params: 0, details: { 'type': 'add' } }
       ]
     };
@@ -2213,9 +2213,9 @@ class ModelParser {
         name: 'Vision Encoder', type: 'vision', icon: '👁', params: this._calcVisionParams(vc),
         details: { 'hidden_size': vc.hidden_size || vc.vt_hidden_size, 'depth': vc.depth || vc.vt_num_hidden_layers, 'num_heads': vc.num_heads || vc.vt_num_attention_heads, 'patch_size': vc.patch_size, 'intermediate_size': vc.intermediate_size || vc.vt_intermediate_size, 'out_hidden_size': vc.out_hidden_size || vc.text_hidden_size, 'spatial_merge_size': vc.spatial_merge_size, 'temporal_patch_size': vc.temporal_patch_size },
         children: [
-          { name: 'Patch Embed', type: 'vision', icon: '🔲', params: (vc.in_channels||3) * (vc.vt_hidden_size||vc.hidden_size) * vc.patch_size * vc.patch_size, details: { 'in_channels': vc.in_channels||3, 'patch_size': vc.patch_size } },
+          { name: 'Patch Embed', type: 'vision', icon: '🔲', shape: [(vc.in_channels||3) * vc.patch_size * vc.patch_size, vc.vt_hidden_size||vc.hidden_size], params: (vc.in_channels||3) * (vc.vt_hidden_size||vc.hidden_size) * vc.patch_size * vc.patch_size, details: { 'in_channels': vc.in_channels||3, 'patch_size': vc.patch_size } },
           { name: `ViT Blocks (${vc.depth || vc.vt_num_hidden_layers} layers)`, type: 'vision', icon: '🔄', isLayerGroup: true, layerCount: vc.depth || vc.vt_num_hidden_layers, params: this._calcVisionParams(vc) - (vc.in_channels||3) * (vc.vt_hidden_size||vc.hidden_size) * vc.patch_size * vc.patch_size, details: {}, children: [] },
-          { name: 'Merger (→ text hidden)', type: 'vision', icon: '🔗', params: (vc.vt_hidden_size||vc.hidden_size||1152) * (vc.out_hidden_size||vc.text_hidden_size||H), details: { 'in': vc.vt_hidden_size||vc.hidden_size, 'out': vc.out_hidden_size||vc.text_hidden_size } },
+          { name: 'Merger (→ text hidden)', type: 'vision', icon: '🔗', shape: [(vc.vt_hidden_size||vc.hidden_size||1152), (vc.out_hidden_size||vc.text_hidden_size||H)], params: (vc.vt_hidden_size||vc.hidden_size||1152) * (vc.out_hidden_size||vc.text_hidden_size||H), details: { 'in': vc.vt_hidden_size||vc.hidden_size, 'out': vc.out_hidden_size||vc.text_hidden_size } },
         ]
       });
     }
@@ -2304,9 +2304,9 @@ class ModelParser {
     const mlpNode = !isDenseMLP && numExp > 0
       ? this._buildMoEMLP(H, moeI, numExp, numExpPerTok, sharedExpI, 'silu')
       : { name: 'MLP (SwiGLU)', type: 'ffn', icon: '🔀', params: 3 * H * I, details: { 'intermediate_size': I }, children: [
-          { name: 'gate_proj', type: 'ffn', icon: '🚪', params: H * I, details: {} },
-          { name: 'up_proj', type: 'ffn', icon: '⬆', params: H * I, details: {} },
-          { name: 'down_proj', type: 'ffn', icon: '⬇', params: I * H, details: {} },
+          { name: 'gate_proj', type: 'ffn', icon: '🚪', shape: [H, I], params: H * I, details: {} },
+          { name: 'up_proj', type: 'ffn', icon: '⬆', shape: [H, I], params: H * I, details: {} },
+          { name: 'down_proj', type: 'ffn', icon: '⬇', shape: [I, H], params: I * H, details: {} },
         ] };
     const ffnP = mlpNode.params;
 
@@ -2349,17 +2349,17 @@ class ModelParser {
     const oP = (A * headDim) * H;
     const qNormP = A * qkNope, kvNormP = kvLoraR;
     const attnP = qAP + qBP + kvAP + kvBP + oP + qNormP + kvNormP;
-    const mlpNode = numExp > 0 ? this._buildMoEMLP(H, moeI, numExp, numExpPerTok, sharedExpI, 'silu') : { name: 'MLP', type: 'ffn', icon: '🔀', params: 3 * H * moeI, details: {}, children: [] };
+    const mlpNode = numExp > 0 ? this._buildMoEMLP(H, moeI, numExp, numExpPerTok, sharedExpI, 'silu') : { name: 'MLP', type: 'ffn', icon: '🔀', shape: [H, moeI], params: 3 * H * moeI, details: {}, children: [] };
     return {
       name: `MTP Layer ${i}`, type: 'mtp', icon: '🔮', params: eProj + attnP + 2 * normP + mlpNode.params + normP,
       details: { 'hidden_size': H, 'purpose': 'Multi-Token Prediction' },
       children: [
-        { name: 'Embed Projection', type: 'embedding', icon: '📋', params: eProj, details: { 'shape': `${H} x ${H}` } },
-        { name: 'RMSNorm', type: 'norm', icon: '📊', params: normP, details: { 'eps': rmsEps } },
+        { name: 'Embed Projection', type: 'embedding', icon: '📋', shape: [H, H], params: eProj, details: { 'shape': `${H} x ${H}` } },
+        { name: 'RMSNorm', type: 'norm', icon: '📊', shape: [H], params: normP, details: { 'eps': rmsEps } },
         { name: 'Self-Attention (MLA)', type: 'attention', icon: '⚡', params: attnP, details: { 'mechanism': 'MLA', 'q_lora_rank': qLoraR, 'kv_lora_rank': kvLoraR }, children: [] },
-        { name: 'Post-Attn RMSNorm', type: 'norm', icon: '📊', params: normP, details: { 'eps': rmsEps } },
+        { name: 'Post-Attn RMSNorm', type: 'norm', icon: '📊', shape: [H], params: normP, details: { 'eps': rmsEps } },
         mlpNode,
-        { name: 'Shared Head', type: 'head', icon: '🎯', params: H, details: { 'note': 'shared with main LM head' } },
+        { name: 'Shared Head', type: 'head', icon: '🎯', shape: [H, H], params: H, details: { 'note': 'shared with main LM head' } },
       ]
     };
   }
@@ -2425,9 +2425,9 @@ class ModelParser {
         name: 'Vision Encoder (MoonViT-V2)', type: 'vision', icon: '👁', params: 401e6,
         details: { 'hidden_size': vtH, 'depth': vtD, 'num_heads': vtNH, 'patch_size': vc.patch_size, 'intermediate_size': vtI, 'qkv_hidden_size': qkvH, 'out_hidden_size': txtH, 'params': '~401M' },
         children: [
-          { name: 'Patch Embed', type: 'vision', icon: '🔲', params: 3 * vtH * (vc.patch_size||14) * (vc.patch_size||14), details: { 'in_channels': 3, 'patch_size': vc.patch_size } },
+          { name: 'Patch Embed', type: 'vision', icon: '🔲', shape: [3 * (vc.patch_size||14) * (vc.patch_size||14), vtH], params: 3 * vtH * (vc.patch_size||14) * (vc.patch_size||14), details: { 'in_channels': 3, 'patch_size': vc.patch_size } },
           { name: `ViT Blocks (${vtD} layers)`, type: 'vision', icon: '🔄', isLayerGroup: true, layerCount: vtD, params: vtD * (3 * qkvH * qkvH + 2 * vtH * vtI + 5 * vtH), details: { 'per_block': 'wqkv + wo + fc0 + fc1 + 2×norm' }, children: [] },
-          { name: 'Merger (PatchMergerV2)', type: 'vision', icon: '🔗', params: vtH * txtH + txtH, details: { 'type': vc.mm_projector_type || 'patchmergerv2' } },
+          { name: 'Merger (PatchMergerV2)', type: 'vision', icon: '🔗', shape: [vtH, txtH], params: vtH * txtH + txtH, details: { 'type': vc.mm_projector_type || 'patchmergerv2' } },
         ]
       });
     }
@@ -2463,7 +2463,7 @@ class ModelParser {
 
     // Output AttnRes
     lmChildren.push({
-      name: 'Output AttnRes', type: 'norm', icon: '🔗', params: H * H + H,
+      name: 'Output AttnRes', type: 'norm', icon: '🔗', shape: [H, H], params: H * H + H,
       details: { 'proj': `${H} x ${H}`, 'norm': H, 'note': 'cross-layer attention residual at output' }
     });
 
@@ -2511,20 +2511,20 @@ class ModelParser {
     const attnP = qP + kP + vP + oP + gP + faP + fbP + bP + qConvP + kConvP + vConvP + aLogP + dtBiasP + oNormP;
 
     const attnChildren = [
-      { name: 'q_proj', type: 'attention', icon: '📊', params: qP, details: { 'shape': `${H} x ${qkvW}` } },
-      { name: 'k_proj', type: 'attention', icon: '📊', params: kP, details: { 'shape': `${H} x ${qkvW}` } },
-      { name: 'v_proj', type: 'attention', icon: '📊', params: vP, details: { 'shape': `${H} x ${qkvW}` } },
-      { name: 'o_proj', type: 'attention', icon: '📤', params: oP, details: { 'shape': `${qkvW} x ${H}` } },
-      { name: 'g_proj', type: 'attention', icon: '🚪', params: gP, details: { 'shape': `${H} x ${qkvW}`, 'note': 'output gate (Gated MLA / KDA)' } },
-      { name: 'f_a_proj', type: 'attention', icon: '📊', params: faP, details: { 'shape': `${H} x ${headDim}`, 'note': 'decay gate low-rank A' } },
-      { name: 'f_b_proj', type: 'attention', icon: '📊', params: fbP, details: { 'shape': `${headDim} x ${qkvW}`, 'note': 'decay gate low-rank B' } },
-      { name: 'b_proj', type: 'attention', icon: '📊', params: bP, details: { 'shape': `${H} x ${A}`, 'note': 'beta gate (write strength)' } },
-      { name: 'q_conv1d', type: 'attention', icon: '🌊', params: qConvP, details: { 'kernel': convKernel } },
-      { name: 'k_conv1d', type: 'attention', icon: '🌊', params: kConvP, details: { 'kernel': convKernel } },
-      { name: 'v_conv1d', type: 'attention', icon: '🌊', params: vConvP, details: { 'kernel': convKernel } },
-      { name: 'A_log', type: 'norm', icon: '📊', params: aLogP, details: { 'shape': `${A}`, 'note': 'per-head log decay scale' } },
-      { name: 'dt_bias', type: 'norm', icon: '📊', params: dtBiasP, details: { 'shape': `${qkvW}` } },
-      { name: 'o_norm', type: 'norm', icon: '📊', params: oNormP, details: { 'shape': `${headDim}`, 'type': 'rms' } },
+      { name: 'q_proj', type: 'attention', icon: '📊', shape: [H, qkvW], params: qP, details: { 'shape': `${H} x ${qkvW}` } },
+      { name: 'k_proj', type: 'attention', icon: '📊', shape: [H, qkvW], params: kP, details: { 'shape': `${H} x ${qkvW}` } },
+      { name: 'v_proj', type: 'attention', icon: '📊', shape: [H, qkvW], params: vP, details: { 'shape': `${H} x ${qkvW}` } },
+      { name: 'o_proj', type: 'attention', icon: '📤', shape: [qkvW, H], params: oP, details: { 'shape': `${qkvW} x ${H}` } },
+      { name: 'g_proj', type: 'attention', icon: '🚪', shape: [H, qkvW], params: gP, details: { 'shape': `${H} x ${qkvW}`, 'note': 'output gate (Gated MLA / KDA)' } },
+      { name: 'f_a_proj', type: 'attention', icon: '📊', shape: [H, headDim], params: faP, details: { 'shape': `${H} x ${headDim}`, 'note': 'decay gate low-rank A' } },
+      { name: 'f_b_proj', type: 'attention', icon: '📊', shape: [headDim, qkvW], params: fbP, details: { 'shape': `${headDim} x ${qkvW}`, 'note': 'decay gate low-rank B' } },
+      { name: 'b_proj', type: 'attention', icon: '📊', shape: [H, A], params: bP, details: { 'shape': `${H} x ${A}`, 'note': 'beta gate (write strength)' } },
+      { name: 'q_conv1d', type: 'attention', icon: '🌊', shape: [convKernel, qkvW], params: qConvP, details: { 'kernel': convKernel, 'shape': `${convKernel} x ${qkvW}` } },
+      { name: 'k_conv1d', type: 'attention', icon: '🌊', shape: [convKernel, qkvW], params: kConvP, details: { 'kernel': convKernel, 'shape': `${convKernel} x ${qkvW}` } },
+      { name: 'v_conv1d', type: 'attention', icon: '🌊', shape: [convKernel, qkvW], params: vConvP, details: { 'kernel': convKernel, 'shape': `${convKernel} x ${qkvW}` } },
+      { name: 'A_log', type: 'norm', icon: '📊', shape: [A], params: aLogP, details: { 'shape': `${A}`, 'note': 'per-head log decay scale' } },
+      { name: 'dt_bias', type: 'norm', icon: '📊', shape: [qkvW], params: dtBiasP, details: { 'shape': `${qkvW}` } },
+      { name: 'o_norm', type: 'norm', icon: '📊', shape: [headDim], params: oNormP, details: { 'shape': `${headDim}`, 'type': 'rms' } },
     ];
 
     // AttnRes: self_attention_res_proj + norm, mlp_res_proj + norm
@@ -2558,9 +2558,9 @@ class ModelParser {
           'activation': 'SiTU-GLU', 'router': 'Quantile Balancing',
         },
         children: [
-          { name: 'gate (router)', type: 'norm', icon: '🚪', params: routerP, details: { 'shape': `${H} x ${numExp}`, 'note': `top-${numExpPerTok} of ${numExp}, Quantile Balancing`, 'bias': numExp } },
-          { name: 'routed_expert_up_proj', type: 'ffn', icon: '⬆', params: upProjP, details: { 'shape': `${H} x ${latentH}`, 'note': 'project H → latent space' } },
-          { name: 'routed_expert_norm', type: 'norm', icon: '📊', params: expNormP, details: { 'shape': `${latentH}`, 'type': 'rms', 'note': 'norm in latent space' } },
+          { name: 'gate (router)', type: 'norm', icon: '🚪', shape: [H, numExp], params: routerP, details: { 'shape': `${H} x ${numExp}`, 'note': `top-${numExpPerTok} of ${numExp}, Quantile Balancing`, 'bias': numExp } },
+          { name: 'routed_expert_up_proj', type: 'ffn', icon: '⬆', shape: [H, latentH], params: upProjP, details: { 'shape': `${H} x ${latentH}`, 'note': 'project H → latent space' } },
+          { name: 'routed_expert_norm', type: 'norm', icon: '📊', shape: [latentH], params: expNormP, details: { 'shape': `${latentH}`, 'type': 'rms', 'note': 'norm in latent space' } },
           {
             name: `Experts (${numExp})`, type: 'moe', icon: '🎲',
             isLayerGroup: true, layerCount: numExp, params: expTotal,
@@ -2569,14 +2569,14 @@ class ModelParser {
               name: `Expert ${ei}${numExp > 4 ? ' (sample)' : ''}`, type: 'ffn', icon: '🔧', params: perExpert,
               details: { 'w1': `${latentH} x ${moeI}`, 'w2': `${moeI} x ${latentH}`, 'w3': `${latentH} x ${moeI}` },
               children: [
-                { name: 'w1 (gate)', type: 'ffn', icon: '🚪', params: latentH * moeI, details: { 'shape': `${latentH} x ${moeI}` } },
-                { name: 'w3 (up)', type: 'ffn', icon: '⬆', params: latentH * moeI, details: { 'shape': `${latentH} x ${moeI}` } },
-                { name: 'w2 (down)', type: 'ffn', icon: '⬇', params: moeI * latentH, details: { 'shape': `${moeI} x ${latentH}` } },
+                { name: 'w1 (gate)', type: 'ffn', icon: '🚪', shape: [latentH, moeI], params: latentH * moeI, details: { 'shape': `${latentH} x ${moeI}` } },
+                { name: 'w3 (up)', type: 'ffn', icon: '⬆', shape: [latentH, moeI], params: latentH * moeI, details: { 'shape': `${latentH} x ${moeI}` } },
+                { name: 'w2 (down)', type: 'ffn', icon: '⬇', shape: [moeI, latentH], params: moeI * latentH, details: { 'shape': `${moeI} x ${latentH}` } },
               ]
             }))
           },
-          { name: 'routed_expert_down_proj', type: 'ffn', icon: '⬇', params: downProjP, details: { 'shape': `${latentH} x ${H}`, 'note': 'project latent → H' } },
-          { name: `Shared Experts (${numSharedExp})`, type: 'ffn', icon: '🔧', params: sharedP, details: { 'merged': true, 'gate_proj': `${H} x ${sharedMoeI}`, 'up_proj': `${H} x ${sharedMoeI}`, 'down_proj': `${sharedMoeI} x ${H}` } },
+          { name: 'routed_expert_down_proj', type: 'ffn', icon: '⬇', shape: [latentH, H], params: downProjP, details: { 'shape': `${latentH} x ${H}`, 'note': 'project latent → H' } },
+          { name: `Shared Experts (${numSharedExp})`, type: 'ffn', icon: '🔧', shape: [H, sharedMoeI], params: sharedP, details: { 'merged': true, 'gate_proj': `${H} x ${sharedMoeI}`, 'up_proj': `${H} x ${sharedMoeI}`, 'down_proj': `${sharedMoeI} x ${H}` } },
         ]
       };
     } else {
@@ -2585,9 +2585,9 @@ class ModelParser {
         name: 'MLP (SiTU-GLU)', type: 'ffn', icon: '🔀', params: 3 * H * I,
         details: { 'intermediate_size': I, 'activation': 'SiTU-GLU' },
         children: [
-          { name: 'gate_proj', type: 'ffn', icon: '🚪', params: H * I, details: { 'shape': `${H} x ${I}` } },
-          { name: 'up_proj', type: 'ffn', icon: '⬆', params: H * I, details: { 'shape': `${H} x ${I}` } },
-          { name: 'down_proj', type: 'ffn', icon: '⬇', params: I * H, details: { 'shape': `${I} x ${H}` } },
+          { name: 'gate_proj', type: 'ffn', icon: '🚪', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}` } },
+          { name: 'up_proj', type: 'ffn', icon: '⬆', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}` } },
+          { name: 'down_proj', type: 'ffn', icon: '⬇', shape: [I, H], params: I * H, details: { 'shape': `${I} x ${H}` } },
         ]
       };
     }
@@ -2614,10 +2614,10 @@ class ModelParser {
             : { 'mechanism': 'KDA (Kimi Delta Attention)', 'num_heads': A, 'head_dim': headDim, 'qkv_width': qkvW, 'conv_kernel': convKernel, 'state_size': `${headDim}x${headDim} per head`, 'forget_gate': 'per-channel', 'position_encoding': 'implicit (decay)' },
           children: attnChildren
         },
-        { name: 'Self-Attn Res (AttnRes)', type: 'norm', icon: '🔗', params: H * H + H, details: { 'proj': `${H} x ${H}`, 'norm': H, 'note': 'cross-layer attention residual' } },
+        { name: 'Self-Attn Res (AttnRes)', type: 'norm', icon: '🔗', shape: [H, H], params: H * H + H, details: { 'proj': `${H} x ${H}`, 'norm': H, 'note': 'cross-layer attention residual' } },
         { name: 'Post-Attn RMSNorm', type: 'norm', icon: '📊', shape: [H], params: normP, details: { 'eps': rmsEps, 'type': 'rms' } },
         mlpNode,
-        { name: 'MLP Res (AttnRes)', type: 'norm', icon: '🔗', params: H * H + H, details: { 'proj': `${H} x ${H}`, 'norm': H, 'note': 'cross-layer attention residual' } },
+        { name: 'MLP Res (AttnRes)', type: 'norm', icon: '🔗', shape: [H, H], params: H * H + H, details: { 'proj': `${H} x ${H}`, 'norm': H, 'note': 'cross-layer attention residual' } },
       ]
     };
   }
@@ -2736,9 +2736,9 @@ class ModelParser {
         name: 'Hyper-Connection', type: 'norm', icon: '🔗', params: hcParams + 4 * H,
         details: { 'hc_mult': c.hc_mult || 4, 'hc_sinkhorn_iters': c.hc_sinkhorn_iters || 20, 'note': 'Learnable skip connections between layers' },
         children: [
-          { name: 'hc_head_base', type: 'norm', icon: '📊', params: H, details: { 'note': 'head connection base' } },
-          { name: 'hc_head_fn', type: 'norm', icon: '📊', params: H, details: { 'note': 'head connection function' } },
-          { name: 'hc_head_scale', type: 'norm', icon: '📊', params: H, details: { 'note': 'head connection scale' } },
+          { name: 'hc_head_base', type: 'norm', icon: '📊', shape: [H], params: H, details: { 'note': 'head connection base' } },
+          { name: 'hc_head_fn', type: 'norm', icon: '📊', shape: [24, H*(c.hc_mult||4)], params: H, details: { 'note': 'head connection function' } },
+          { name: 'hc_head_scale', type: 'norm', icon: '📊', shape: [3], params: H, details: { 'note': 'head connection scale' } },
         ]
       });
     }
@@ -2765,7 +2765,11 @@ class ModelParser {
     // MoE MLP
     const mlpNode = numExp > 0
       ? this._buildMoEMLP(H, I, numExp, numExpPerTok, sharedExpI, 'silu')
-      : { name: 'MLP (SwiGLU)', type: 'ffn', icon: '🔀', params: 3 * H * I, details: { 'intermediate_size': I }, children: [] };
+      : { name: 'MLP (SwiGLU)', type: 'ffn', icon: '🔀', shape: [H, I], params: 3 * H * I, details: { 'intermediate_size': I }, children: [
+          { name: 'gate_proj', type: 'ffn', icon: '🚪', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}`, 'bias': false } },
+          { name: 'up_proj', type: 'ffn', icon: '⬆', shape: [H, I], params: H * I, details: { 'shape': `${H} x ${I}`, 'bias': false } },
+          { name: 'down_proj', type: 'ffn', icon: '⬇', shape: [I, H], params: I * H, details: { 'shape': `${I} x ${H}`, 'bias': false } },
+        ] };
     const ffnParams = mlpNode.params;
     const hcParams = 6 * H; // hc_attn + hc_ffn (base/fn/scale each)
 
@@ -2786,10 +2790,10 @@ class ModelParser {
         name: `Compressor (ratio=${compressRatio})`, type: 'attention', icon: '🗜', params: compressorP,
         details: { 'compress_ratio': compressRatio, 'note': compressRatio === 4 ? 'CSA: light compress + sparse index' : 'HCA: heavy compress + dense attn' },
         children: [
-          { name: 'wkv', type: 'attention', icon: '📊', params: headDim * headDim, details: { 'shape': `${headDim} x ${headDim}` } },
-          { name: 'wgate', type: 'attention', icon: '🚪', params: headDim, details: { 'note': 'gate for compress ratio' } },
-          { name: 'norm', type: 'norm', icon: '📊', params: headDim, details: { 'type': 'rms' } },
-          { name: 'ape', type: 'norm', icon: '📊', params: headDim, details: { 'note': 'absolute position embedding' } },
+          { name: 'wkv', type: 'attention', icon: '📊', shape: [headDim, headDim], params: headDim * headDim, details: { 'shape': `${headDim} x ${headDim}` } },
+          { name: 'wgate', type: 'attention', icon: '🚪', shape: [headDim], params: headDim, details: { 'note': 'gate for compress ratio' } },
+          { name: 'norm', type: 'norm', icon: '📊', shape: [headDim], params: headDim, details: { 'type': 'rms' } },
+          { name: 'ape', type: 'norm', icon: '📊', shape: [headDim], params: headDim, details: { 'note': 'absolute position embedding' } },
         ]
       });
     }
@@ -2798,9 +2802,9 @@ class ModelParser {
         name: 'Indexer (Lightning)', type: 'attention', icon: '🔍', params: indexerP,
         details: { 'index_n_heads': indexNH, 'index_head_dim': indexHD, 'index_topk': indexTopk, 'note': 'sparse top-k selection for CSA' },
         children: [
-          { name: 'wq_b', type: 'attention', icon: '📊', params: qLoraR * indexNH * indexHD, details: { 'shape': `${qLoraR} x ${indexNH * indexHD}`, 'has_scale': true } },
-          { name: 'weights_proj', type: 'attention', icon: '📊', params: indexNH * indexHD * headDim, details: { 'shape': `${indexNH * indexHD} x ${headDim}` } },
-          { name: 'compressor (inner)', type: 'attention', icon: '🗜', params: headDim * headDim, details: { 'note': 'inner compressor for indexer' } },
+          { name: 'wq_b', type: 'attention', icon: '📊', shape: [qLoraR, indexNH * indexHD], params: qLoraR * indexNH * indexHD, details: { 'shape': `${qLoraR} x ${indexNH * indexHD}`, 'has_scale': true } },
+          { name: 'weights_proj', type: 'attention', icon: '📊', shape: [indexNH * indexHD, headDim], params: indexNH * indexHD * headDim, details: { 'shape': `${indexNH * indexHD} x ${headDim}` } },
+          { name: 'compressor (inner)', type: 'attention', icon: '🗜', shape: [headDim, headDim], params: headDim * headDim, details: { 'note': 'inner compressor for indexer' } },
         ]
       });
     }
@@ -2845,15 +2849,15 @@ class ModelParser {
     const normParams = H;
     const eProj = H * H;
     const attnParams = qLoraR * (A * headDim) + H * qLoraR + headDim * headDim * 2 + (A * headDim) * oLoraR + oLoraR * H + A * headDim + headDim + headDim;
-    const mlpNode = numExp > 0 ? this._buildMoEMLP(H, I, numExp, numExpPerTok, sharedExpI, 'silu') : { name: 'MLP', type: 'ffn', icon: '🔀', params: 3 * H * I, details: {}, children: [] };
+    const mlpNode = numExp > 0 ? this._buildMoEMLP(H, I, numExp, numExpPerTok, sharedExpI, 'silu') : { name: 'MLP', type: 'ffn', icon: '🔀', shape: [H, I], params: 3 * H * I, details: {}, children: [] };
     return {
       name: `MTP Layer ${i}`, type: 'mtp', icon: '🔮', params: eProj + attnParams + mlpNode.params + 2 * normParams,
       details: { 'purpose': 'Next-Token Prediction', 'e_proj': `${H} x ${H}`, 'weight_prefix': `mtp.${i}` },
       children: [
         { name: 'e_proj', type: 'embedding', icon: '🔤', shape: [H, H], params: eProj, details: { 'shape': `${H} x ${H}`, 'has_scale': true } },
         { name: 'enorm', type: 'norm', icon: '📊', shape: [H], params: normParams, details: { 'type': 'rms', 'eps': rmsEps } },
-        { name: 'MTP Attention', type: 'attention', icon: '⚡', params: attnParams, details: { 'same_as_layer': true } },
-        { name: 'MTP MLP', type: 'ffn', icon: '🔀', params: mlpNode.params, details: { 'is_moe': numExp > 0 } },
+        { name: 'MTP Attention', type: 'attention', icon: '⚡', shape: [H, A*headDim], params: attnParams, details: { 'same_as_layer': true } },
+        { name: 'MTP MLP', type: 'ffn', icon: '🔀', shape: [H, I], params: mlpNode.params, details: { 'is_moe': numExp > 0 } },
       ]
     };
   }
@@ -3036,10 +3040,10 @@ class ModelParser {
       name: `Indexer (${indexerType})`, type: 'attention', icon: '🔍', params: indexerP,
       details: { 'indexer_type': indexerType, 'note': indexerType === 'full' ? 'full indexer (own weights)' : 'shared indexer (weights shared across layers)' },
       children: [
-        { name: 'wk', type: 'attention', icon: '📊', params: indexerWkB, details: { 'note': 'key projection for indexer' } },
-        { name: 'wq_b', type: 'attention', icon: '📊', params: indexerWqB, details: { 'note': 'query projection B for indexer' } },
-        { name: 'weights_proj', type: 'attention', icon: '📊', params: indexerWP, details: { 'note': 'project indexer output' } },
-        { name: 'k_norm', type: 'norm', icon: '📊', params: indexerKNorm, details: { 'type': 'rms', 'bias': true } },
+        { name: 'wk', type: 'attention', icon: '📊', shape: [kvLoraR + qkRope, indexNH * indexHD], params: indexerWkB, details: { 'shape': `${kvLoraR+qkRope} x ${indexNH*indexHD}`, 'note': 'key projection for indexer' } },
+        { name: 'wq_b', type: 'attention', icon: '📊', shape: [qLoraR, indexNH * indexHD], params: indexerWqB, details: { 'shape': `${qLoraR} x ${indexNH*indexHD}`, 'note': 'query projection B for indexer' } },
+        { name: 'weights_proj', type: 'attention', icon: '📊', shape: [indexNH * indexHD, headDim], params: indexerWP, details: { 'shape': `${indexNH*indexHD} x ${headDim}`, 'note': 'project indexer output' } },
+        { name: 'k_norm', type: 'norm', icon: '📊', shape: [indexNH * indexHD], params: indexerKNorm, details: { 'type': 'rms', 'bias': true } },
       ]
     });
 
@@ -3534,8 +3538,8 @@ class ModelParser {
           params: perLayerParams,
           details: { 'hidden_size': H, 'attention_heads': A, 'intermediate_size': I },
           children: [
-            { name: 'Self-Attention', type: 'attention', icon: '⚡', params: 4 * H * H, details: { 'num_heads': A, 'head_dim': A ? H / A : '?' } },
-            { name: 'Feed-Forward', type: 'ffn', icon: '🔀', params: 2 * H * I, details: { 'intermediate_size': I } }
+            { name: 'Self-Attention', type: 'attention', icon: '⚡', shape: A ? [H, H] : [], params: 4 * H * H, details: { 'num_heads': A, 'head_dim': A ? H / A : '?' } },
+            { name: 'Feed-Forward', type: 'ffn', icon: '🔀', shape: [H, I], params: 2 * H * I, details: { 'intermediate_size': I } }
           ]
         }))
       });
@@ -4228,6 +4232,14 @@ class StructureExtractor {
       }
       else {
         childNode.type = 'module'; childNode.icon = '📦';
+        // Try to infer shape from tensor children (weight/bias)
+        if (childNode.children && childNode.children.length > 0) {
+          const wChild = childNode.children.find(c => c.name === 'weight');
+          if (wChild && wChild.params > 0 && wChild.shape) {
+            childNode.params = wChild.params;
+            childNode.shape = wChild.shape;
+          }
+        }
       }
       projTree.children.push(childNode);
     }
