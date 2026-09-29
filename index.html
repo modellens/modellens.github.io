@@ -4114,11 +4114,11 @@ class StructureExtractor {
     if (!parentNode.children) return;
     for (const child of parentNode.children) {
       const name = (child.name || '').toLowerCase();
-      if (name === 'q_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
-      else if (name === 'k_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
-      else if (name === 'v_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
-      else if (name === 'out_proj' || name === 'wo') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; }
-      else if (name === 'qkv' || name === 'wqkv' || name.includes('qkv')) { child.params = 3 * H * H; child.shape = [H, 3*H]; child.details = { ...child.details, weight: `${H}×${3*H}`, bias: `${3*H}`, note: 'fused qkv' }; }
+      if (name === 'q_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; this._setLeafShapeFromParent(child, H, H); }
+      else if (name === 'k_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; this._setLeafShapeFromParent(child, H, H); }
+      else if (name === 'v_proj') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; this._setLeafShapeFromParent(child, H, H); }
+      else if (name === 'out_proj' || name === 'wo') { child.params = H * H; child.shape = [H, H]; child.details = { ...child.details, weight: `${H}×${H}`, bias: `${H}` }; this._setLeafShapeFromParent(child, H, H); }
+      else if (name === 'qkv' || name === 'wqkv' || name.includes('qkv')) { child.params = 3 * H * H; child.shape = [H, 3*H]; child.details = { ...child.details, weight: `${H}×${3*H}`, bias: `${3*H}`, note: 'fused qkv' }; this._setLeafShapeFromParent(child, H, 3*H); }
     }
   }
 
@@ -4127,9 +4127,26 @@ class StructureExtractor {
     if (!parentNode.children) return;
     for (const child of parentNode.children) {
       const name = (child.name || '').toLowerCase();
-      if (name === 'fc1' || name.includes('fc1') || name === 'w1' || name === 'gate_proj') { child.params = H * I; child.shape = [H, I]; child.details = { ...child.details, weight: `${H}×${I}`, bias: `${I}` }; }
-      else if (name === 'fc2' || name.includes('fc2') || name === 'w2' || name === 'down_proj') { child.params = I * H; child.shape = [I, H]; child.details = { ...child.details, weight: `${I}×${H}`, bias: `${H}` }; }
-      else if (name === 'up_proj') { child.params = H * I; child.shape = [H, I]; child.details = { ...child.details, weight: `${H}×${I}`, bias: `${I}` }; }
+      if (name === 'fc1' || name.includes('fc1') || name === 'w1' || name === 'gate_proj') { child.params = H * I; child.shape = [H, I]; child.details = { ...child.details, weight: `${H}×${I}`, bias: `${I}` }; this._setLeafShapeFromParent(child, H, I); }
+      else if (name === 'fc2' || name.includes('fc2') || name === 'w2' || name === 'down_proj') { child.params = I * H; child.shape = [I, H]; child.details = { ...child.details, weight: `${I}×${H}`, bias: `${H}` }; this._setLeafShapeFromParent(child, I, H); }
+      else if (name === 'up_proj') { child.params = H * I; child.shape = [H, I]; child.details = { ...child.details, weight: `${H}×${I}`, bias: `${I}` }; this._setLeafShapeFromParent(child, H, I); }
+    }
+  }
+
+  // Helper: set shape & params on weight/bias leaf children of a projection node
+  _setLeafShapeFromParent(parentNode, inDim, outDim) {
+    if (!parentNode.children) return;
+    for (const child of parentNode.children) {
+      const name = (child.name || '').toLowerCase();
+      if (name === 'weight' && (!child.shape || (child.params === 0 || child.params === undefined))) {
+        child.params = inDim * outDim;
+        child.shape = [inDim, outDim];
+        child.details = { ...child.details, shape: `${inDim}×${outDim}` };
+      } else if (name === 'bias' && (!child.shape || (child.params === 0 || child.params === undefined))) {
+        child.params = outDim;
+        child.shape = [outDim];
+        child.details = { ...child.details, shape: `[${outDim}]` };
+      }
     }
   }
 
@@ -4167,25 +4184,72 @@ class StructureExtractor {
       const child = projRoot.children[key];
       const childNode = this._trieToNode(this._humanize(key), child, key, 2);
       childNode._trieKey = key;
-      // Infer projector params
+      // Infer projector params — handle all common naming conventions
       const k = key.toLowerCase();
-      if (k.includes('linear_1') || k.includes('fc1')) {
-        childNode.params = visH * visH * spatialMerge * spatialMerge;  // approximate
-        childNode.shape = [visH * spatialMerge * spatialMerge, visH];
+      const mergedIn = visH * spatialMerge * spatialMerge;
+      // Input projection: gate_proj / w1 / linear_1 / fc1 (visH→out or merged→visH)
+      if (k === 'gate_proj' || k === 'w1' || k.includes('linear_1') || k.includes('fc1')) {
+        const projIn = k === 'gate_proj' || k === 'w1' ? mergedIn : mergedIn;
+        childNode.params = projIn * visH;
+        childNode.shape = [projIn, visH];
+        childNode.type = 'ffn'; childNode.icon = '🚪';
+        childNode.details = { weight: `${projIn}×${visH}`, bias: `${visH}` };
+        this._setProjectorLeafParams(childNode, projIn, visH);
+      }
+      // Hidden projection: up_proj / w3
+      else if (k === 'up_proj' || k === 'w3') {
+        childNode.params = mergedIn * visH;
+        childNode.shape = [mergedIn, visH];
         childNode.type = 'ffn'; childNode.icon = '⬆';
-        childNode.details = { weight: `${visH * spatialMerge * spatialMerge}×${visH}`, bias: `${visH}` };
-      } else if (k.includes('linear_2') || k.includes('fc2')) {
+        childNode.details = { weight: `${mergedIn}×${visH}`, bias: `${visH}` };
+        this._setProjectorLeafParams(childNode, mergedIn, visH);
+      }
+      // Output projection: down_proj / w2 / linear_2 / fc2 (visH→outHidden)
+      else if (k === 'down_proj' || k === 'w2' || k.includes('linear_2') || k.includes('fc2')) {
         childNode.params = visH * outHidden;
         childNode.shape = [visH, outHidden];
         childNode.type = 'ffn'; childNode.icon = '⬇';
         childNode.details = { weight: `${visH}×${outHidden}`, bias: `${outHidden}` };
-      } else {
+        this._setProjectorLeafParams(childNode, visH, outHidden);
+      }
+      // Norm within projector
+      else if (k.includes('norm') || k.includes('layernorm')) {
+        childNode.params = visH;
+        childNode.shape = [visH];
+        childNode.type = 'norm'; childNode.icon = '📊';
+        childNode.details = { type: 'rms' };
+      }
+      // Merger / patch_merge
+      else if (k.includes('merger') || k.includes('merge')) {
+        childNode.params = mergedIn * outHidden;
+        childNode.shape = [mergedIn, outHidden];
+        childNode.type = 'projector'; childNode.icon = '🔗';
+        childNode.details = { weight: `${mergedIn}×${outHidden}` };
+      }
+      else {
         childNode.type = 'module'; childNode.icon = '📦';
       }
       projTree.children.push(childNode);
     }
 
     return projTree;
+  }
+
+  // Set params on projector leaf children (weight, bias)
+  _setProjectorLeafParams(parentNode, inDim, outDim) {
+    if (!parentNode.children) return;
+    for (const child of parentNode.children) {
+      const name = (child.name || '').toLowerCase();
+      if (name === 'weight') {
+        child.params = inDim * outDim;
+        child.shape = [inDim, outDim];
+        child.details = { ...child.details, shape: `${inDim}×${outDim}` };
+      } else if (name === 'bias') {
+        child.params = outDim;
+        child.shape = [outDim];
+        child.details = { ...child.details, shape: `[${outDim}]` };
+      }
+    }
   }
 
   // Inject config-level semantic details into the Model node
@@ -4984,6 +5048,7 @@ class StructureExtractor {
 
       // Infer shape from the childNode name pattern
       const leafName = childNode.name.toLowerCase();
+      const trieKeyMatch = (childNode._trieKey || '').toLowerCase();
       const details = childNode.details || {};
 
       if (isLowRank) {
@@ -5019,6 +5084,10 @@ class StructureExtractor {
       if (leafName === 'gate_proj' || leafName.includes('gate_proj')) { childNode.shape = [H, I]; details.shape = `${H}×${I}`; }
       else if (leafName === 'up_proj' || leafName.includes('up_proj')) { childNode.shape = [H, I]; details.shape = `${H}×${I}`; }
       else if (leafName === 'down_proj' || leafName.includes('down_proj')) { childNode.shape = [I, H]; details.shape = `${I}×${H}`; }
+      // V4.1 / MiniMax style: w1=gate, w2=down, w3=up
+      else if (leafName === 'w1' || (trieKeyMatch === 'w1' && !leafName.includes('proj'))) { childNode.shape = [H, I]; details.shape = `${H}×${I}`; }
+      else if (leafName === 'w3' || (trieKeyMatch === 'w3' && !leafName.includes('proj'))) { childNode.shape = [H, I]; details.shape = `${H}×${I}`; }
+      else if (leafName === 'w2' || (trieKeyMatch === 'w2' && !leafName.includes('proj'))) { childNode.shape = [I, H]; details.shape = `${I}×${H}`; }
       else if (leafName === 'gate' || (leafName.includes('gate') && !leafName.includes('proj'))) { childNode.shape = [H, this.numExperts || 1]; details.shape = `${H}×${this.numExperts || 1}`; details.note = 'MoE router'; }
       else if (leafName.includes('eh_proj') || leafName === 'phi') { childNode.shape = [H, H]; details.shape = `${H}×${H}`; details.type = details.type || 'hyper_connection'; }
       else if (leafName.includes('branch_alpha')) { childNode.shape = [this.mhcStreams]; details.shape = `[${this.mhcStreams}]`; details.note = 'MHC branch'; }
@@ -5029,6 +5098,13 @@ class StructureExtractor {
       else if (leafName === 'e_proj' || leafName.includes('e_proj')) { childNode.shape = [H, H]; details.shape = `${H}×${H}`; }
 
       childNode.details = details;
+
+      // If shape was inferred, propagate to weight/bias children
+      if (childNode.shape && childNode.shape.length === 2) {
+        this._setLeafShapeFromParent(childNode, childNode.shape[0], childNode.shape[1]);
+      } else if (childNode.shape && childNode.shape.length === 1) {
+        this._setLeafShapeFromParent(childNode, childNode.shape[0], childNode.shape[0]);
+      }
 
       // Recurse into grandchildren — 1:1 match via _trieKey (no cross-product)
       if (childNode.children && childNode.children.length > 0) {
@@ -5176,14 +5252,17 @@ class StructureExtractor {
           proj.params = H * I;
           proj.shape = [H, I];
           proj.details = { ...proj.details, shape: `${H}×${I}`, note: 'expert gate' };
+          this._setLeafShapeFromParent(proj, H, I);
         } else if (name === 'w2' || name.includes('down_proj')) {
           proj.params = I * H;
           proj.shape = [I, H];
           proj.details = { ...proj.details, shape: `${I}×${H}`, note: 'expert down' };
+          this._setLeafShapeFromParent(proj, I, H);
         } else if (name === 'w3' || name.includes('up_proj')) {
           proj.params = H * I;
           proj.shape = [H, I];
           proj.details = { ...proj.details, shape: `${H}×${I}`, note: 'expert up' };
+          this._setLeafShapeFromParent(proj, H, I);
         }
       }
       // Set expert total params
@@ -5200,9 +5279,9 @@ class StructureExtractor {
       const sharedI = this.sharedExpI || this.sharedInterI || I;
       for (const proj of sharedExp.children) {
         const name = (proj.name || '').toLowerCase();
-        if (name === 'w1' || name.includes('gate_proj')) { proj.params = H * sharedI; proj.shape = [H, sharedI]; }
-        else if (name === 'w2' || name.includes('down_proj')) { proj.params = sharedI * H; proj.shape = [sharedI, H]; }
-        else if (name === 'w3' || name.includes('up_proj')) { proj.params = H * sharedI; proj.shape = [H, sharedI]; }
+        if (name === 'w1' || name.includes('gate_proj')) { proj.params = H * sharedI; proj.shape = [H, sharedI]; this._setLeafShapeFromParent(proj, H, sharedI); }
+        else if (name === 'w2' || name.includes('down_proj')) { proj.params = sharedI * H; proj.shape = [sharedI, H]; this._setLeafShapeFromParent(proj, sharedI, H); }
+        else if (name === 'w3' || name.includes('up_proj')) { proj.params = H * sharedI; proj.shape = [H, sharedI]; this._setLeafShapeFromParent(proj, H, sharedI); }
       }
       sharedExp.params = sharedExp.children.reduce((s, c) => s + (c.params || 0), 0);
     }
