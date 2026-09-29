@@ -4495,6 +4495,8 @@ class StructureExtractor {
     if (k === 'norm' || k === 'final_norm' || k === 'final rmsnorm') return { shape: [H], params: H, details: { 'shape': `[${H}]`, 'type': 'rms', 'eps': this.rmsEps }};
     if (k === 'shared_head') return { shape: [H, V], params: H * V + H, details: { 'shape': `${H}×${V}` }};
     if (k === 'merge_mhc_module') return { shape: [H, H], params: H * H, details: { 'type': 'merge_mhc', 'num_streams': this.mhcStreams }};
+    // VLM learned parameter vectors (nn.Parameter, shape [H])
+    if (k === 'image_start' || k === 'image_end' || k === 'image_newline') return { shape: [H], params: H, details: { 'shape': `[${H}]`, 'type': 'learned_vector' }};
     return null;
   }
 
@@ -5351,6 +5353,10 @@ class StructureExtractor {
       'hc_ffn_base': { type: 'other', icon: '🔗' },
       'hc_ffn_fn': { type: 'other', icon: '🔗' },
       'hc_ffn_scale': { type: 'other', icon: '🔗' },
+      // VLM learned parameter vectors (nn.Parameter, shape [H])
+      'image_start': { type: 'embedding', icon: '🖼' },
+      'image_end': { type: 'embedding', icon: '🖼' },
+      'image_newline': { type: 'embedding', icon: '🖼' },
     };
     return map[key] || { type: 'module', icon: '📦' };
   }
@@ -5461,6 +5467,10 @@ class StructureExtractor {
       'index_head_dim': 'index_head_dim',
       'index_n_heads': 'index_n_heads',
       'index_topk': 'index_topk',
+      // VLM learned parameter vectors
+      'image_start': 'Image Start Embed',
+      'image_end': 'Image End Embed',
+      'image_newline': 'Image Newline Embed',
     };
     return map[key] || key;
   }

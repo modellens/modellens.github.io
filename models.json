@@ -1,66 +1,461 @@
 {
   "models": [
-    {"id": "Qwen/Qwen3.8-Flash-Next", "org": "Qwen", "tags": ["moe", "hybrid-attn"], "size": "Flash-Next"},
-    {"id": "Qwen/Qwen3.8-2.4T-A95B", "org": "Qwen", "tags": ["moe", "hybrid-attn"], "size": "2.4T-A95B"},
-    {"id": "Qwen/Qwen3.8-27B", "org": "Qwen", "tags": ["hybrid-attn", "vlm"], "size": "27B"},
-    {"id": "Qwen/Qwen3.6-35B-A3B", "org": "Qwen", "tags": ["moe", "vlm"], "size": "35B-A3B"},
-    {"id": "Qwen/Qwen3.6-27B", "org": "Qwen", "tags": ["hybrid-attn", "vlm"], "size": "27B"},
-    {"id": "Qwen/Qwen3.5-397B-A17B", "org": "Qwen", "tags": ["moe", "vlm", "hybrid-attn"], "size": "397B-A17B"},
-    {"id": "Qwen/Qwen3.5-122B-A10B", "org": "Qwen", "tags": ["moe", "vlm"], "size": "122B-A10B"},
-    {"id": "Qwen/Qwen3.5-35B-A3B", "org": "Qwen", "tags": ["moe", "vlm", "hybrid-attn"], "size": "35B"},
-    {"id": "Qwen/Qwen3.5-27B", "org": "Qwen", "tags": ["dense", "vlm", "hybrid-attn"], "size": "27B"},
-    {"id": "Qwen/Qwen3.5-9B", "org": "Qwen", "tags": ["dense"], "size": "9B"},
-    {"id": "Qwen/Qwen3.5-4B", "org": "Qwen", "tags": ["dense"], "size": "4B"},
-    {"id": "Qwen/Qwen3.5-2B", "org": "Qwen", "tags": ["dense"], "size": "2B"},
-    {"id": "Qwen/Qwen3.5-0.8B", "org": "Qwen", "tags": ["dense"], "size": "0.8B"},
-    {"id": "Qwen/Qwen2.5-7B", "org": "Qwen", "tags": ["dense"], "size": "7B"},
-    {"id": "Qwen/Qwen2.5-72B", "org": "Qwen", "tags": ["dense"], "size": "72B"},
-    {"id": "Qwen/Qwen2-7B", "org": "Qwen", "tags": ["dense"], "size": "7B"},
-
-    {"id": "MiniMaxAI/MiniMax-M3", "org": "MiniMax", "tags": ["moe", "vlm", "sparse-attn"], "size": "M3"},
-    {"id": "MiniMaxAI/MiniMax-M2.7", "org": "MiniMax", "tags": ["moe"], "size": "M2.7"},
-    {"id": "MiniMaxAI/MiniMax-M2.5", "org": "MiniMax", "tags": ["moe"], "size": "M2.5"},
-    {"id": "MiniMaxAI/MiniMax-M2.1", "org": "MiniMax", "tags": ["moe"], "size": "M2.1"},
-    {"id": "MiniMaxAI/MiniMax-M2", "org": "MiniMax", "tags": ["moe"], "size": "M2"},
-    {"id": "MiniMaxAI/MiniMax-M1", "org": "MiniMax", "tags": ["moe", "lightning"], "size": "M1"},
-
-    {"id": "moonshotai/Kimi-K3", "org": "Kimi", "tags": ["moe", "vlm", "hybrid-attn", "latent-moe"], "size": "K3"},
-    {"id": "moonshotai/Kimi-K2.7-Code", "org": "Kimi", "tags": ["moe"], "size": "K2.7-Code"},
-    {"id": "moonshotai/Kimi-K2.6", "org": "Kimi", "tags": ["moe", "vlm"], "size": "K2.6"},
-    {"id": "moonshotai/Kimi-K2.5", "org": "Kimi", "tags": ["moe"], "size": "K2.5"},
-    {"id": "moonshotai/Kimi-K2", "org": "Kimi", "tags": ["moe"], "size": "K2"},
-
-    {"id": "openpangu/openPangu-2.0-Pro", "org": "OpenPangu", "tags": ["moe", "dsa", "mhc"], "size": "2.0-Pro"},
-    {"id": "openpangu/openPangu-2.0-Flash", "org": "OpenPangu", "tags": ["moe", "dsa", "mhc"], "size": "2.0-Flash"},
-
-    {"id": "zai-org/GLM-5.3-Flash", "org": "GLM", "tags": ["moe", "dsa"], "size": "5.3-Flash"},
-    {"id": "zai-org/GLM-5.3", "org": "GLM", "tags": ["moe", "dsa"], "size": "5.3"},
-    {"id": "zai-org/GLM-5.2", "org": "GLM", "tags": ["moe", "dsa"], "size": "5.2"},
-    {"id": "zai-org/GLM-5.1", "org": "GLM", "tags": ["moe", "dsa"], "size": "5.1"},
-    {"id": "zai-org/GLM-5", "org": "GLM", "tags": ["moe", "dsa"], "size": "5"},
-    {"id": "zai-org/GLM-5-32B", "org": "GLM", "tags": ["dense"], "size": "32B"},
-
-    {"id": "deepseek-ai/DeepSeek-V4.1-Flash", "org": "DeepSeek", "tags": ["moe", "csa-hca"], "size": "V4.1-Flash"},
-    {"id": "deepseek-ai/DeepSeek-V4-Pro-0813", "org": "DeepSeek", "tags": ["moe", "csa-hca"], "size": "V4-Pro-0813"},
-    {"id": "deepseek-ai/DeepSeek-V4-Flash-0731", "org": "DeepSeek", "tags": ["moe", "csa-hca"], "size": "V4-Flash-0731"},
-    {"id": "deepseek-ai/DeepSeek-V4-Flash", "org": "DeepSeek", "tags": ["moe", "csa-hca"], "size": "Flash"},
-    {"id": "deepseek-ai/DeepSeek-V4-Pro", "org": "DeepSeek", "tags": ["moe", "csa-hca"], "size": "Pro"},
-    {"id": "deepseek-ai/DeepSeek-V3", "org": "DeepSeek", "tags": ["moe"], "size": "671B"},
-    {"id": "deepseek-ai/DeepSeek-R1", "org": "DeepSeek", "tags": ["moe", "reasoning"], "size": "671B"},
-
-    {"id": "XiaomiMiMo/MiMo-V2.6-Pro-RL", "org": "Xiaomi", "tags": ["moe", "rl"], "size": "V2.6-Pro-RL"},
-    {"id": "XiaomiMiMo/MiMo-V2.6-Flash-RL", "org": "Xiaomi", "tags": ["moe", "rl"], "size": "V2.6-Flash-RL"},
-    {"id": "XiaomiMiMo/MiMo-V2.5-Pro", "org": "Xiaomi", "tags": ["moe"], "size": "V2.5-Pro"},
-    {"id": "XiaomiMiMo/MiMo-V2.5", "org": "Xiaomi", "tags": ["dense"], "size": "V2.5"},
-
-    {"id": "meta-models/Muse-Glimmer-30B", "org": "Meta", "tags": ["dense"], "size": "30B"},
-
-    {"id": "google/gemma-4-26B-A4B-it", "org": "Google", "tags": ["moe", "instruct"], "size": "26B-A4B-it"},
-    {"id": "google/gemma-4-E4B-it", "org": "Google", "tags": ["dense", "instruct"], "size": "E4B-it"},
-    {"id": "google/gemma-4-E2B-it", "org": "Google", "tags": ["dense", "instruct"], "size": "E2B-it"},
-    {"id": "google/gemma-4-31B-it", "org": "Google", "tags": ["dense", "instruct"], "size": "31B-it"},
-    {"id": "google/gemma-4-12B-it", "org": "Google", "tags": ["dense", "instruct"], "size": "12B-it"},
-
-    {"id": "gpt2", "org": "OpenAI", "tags": ["decoder"], "size": "124M"}
+    {
+      "id": "Qwen/Qwen3.8-Flash-Next",
+      "org": "Qwen",
+      "tags": [
+        "moe",
+        "hybrid-attn"
+      ],
+      "size": "Flash-Next"
+    },
+    {
+      "id": "Qwen/Qwen3.8-2.4T-A95B",
+      "org": "Qwen",
+      "tags": [
+        "moe",
+        "hybrid-attn"
+      ],
+      "size": "2.4T-A95B"
+    },
+    {
+      "id": "Qwen/Qwen3.8-27B",
+      "org": "Qwen",
+      "tags": [
+        "hybrid-attn",
+        "vlm"
+      ],
+      "size": "27B"
+    },
+    {
+      "id": "Qwen/Qwen3.6-35B-A3B",
+      "org": "Qwen",
+      "tags": [
+        "moe",
+        "vlm"
+      ],
+      "size": "35B-A3B"
+    },
+    {
+      "id": "Qwen/Qwen3.6-27B",
+      "org": "Qwen",
+      "tags": [
+        "hybrid-attn",
+        "vlm"
+      ],
+      "size": "27B"
+    },
+    {
+      "id": "Qwen/Qwen3.5-397B-A17B",
+      "org": "Qwen",
+      "tags": [
+        "moe",
+        "vlm",
+        "hybrid-attn"
+      ],
+      "size": "397B-A17B"
+    },
+    {
+      "id": "Qwen/Qwen3.5-122B-A10B",
+      "org": "Qwen",
+      "tags": [
+        "moe",
+        "vlm"
+      ],
+      "size": "122B-A10B"
+    },
+    {
+      "id": "Qwen/Qwen3.5-35B-A3B",
+      "org": "Qwen",
+      "tags": [
+        "moe",
+        "vlm",
+        "hybrid-attn"
+      ],
+      "size": "35B"
+    },
+    {
+      "id": "Qwen/Qwen3.5-27B",
+      "org": "Qwen",
+      "tags": [
+        "dense",
+        "vlm",
+        "hybrid-attn"
+      ],
+      "size": "27B"
+    },
+    {
+      "id": "Qwen/Qwen3.5-9B",
+      "org": "Qwen",
+      "tags": [
+        "dense"
+      ],
+      "size": "9B"
+    },
+    {
+      "id": "Qwen/Qwen3.5-4B",
+      "org": "Qwen",
+      "tags": [
+        "dense"
+      ],
+      "size": "4B"
+    },
+    {
+      "id": "Qwen/Qwen3.5-2B",
+      "org": "Qwen",
+      "tags": [
+        "dense"
+      ],
+      "size": "2B"
+    },
+    {
+      "id": "Qwen/Qwen3.5-0.8B",
+      "org": "Qwen",
+      "tags": [
+        "dense"
+      ],
+      "size": "0.8B"
+    },
+    {
+      "id": "Qwen/Qwen2.5-7B",
+      "org": "Qwen",
+      "tags": [
+        "dense"
+      ],
+      "size": "7B"
+    },
+    {
+      "id": "Qwen/Qwen2.5-72B",
+      "org": "Qwen",
+      "tags": [
+        "dense"
+      ],
+      "size": "72B"
+    },
+    {
+      "id": "Qwen/Qwen2-7B",
+      "org": "Qwen",
+      "tags": [
+        "dense"
+      ],
+      "size": "7B"
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M3",
+      "org": "MiniMax",
+      "tags": [
+        "moe",
+        "vlm",
+        "sparse-attn"
+      ],
+      "size": "M3"
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M2.7",
+      "org": "MiniMax",
+      "tags": [
+        "moe"
+      ],
+      "size": "M2.7"
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M2.5",
+      "org": "MiniMax",
+      "tags": [
+        "moe"
+      ],
+      "size": "M2.5"
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M2.1",
+      "org": "MiniMax",
+      "tags": [
+        "moe"
+      ],
+      "size": "M2.1"
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M2",
+      "org": "MiniMax",
+      "tags": [
+        "moe"
+      ],
+      "size": "M2"
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M1",
+      "org": "MiniMax",
+      "tags": [
+        "moe",
+        "lightning"
+      ],
+      "size": "M1"
+    },
+    {
+      "id": "moonshotai/Kimi-K3",
+      "org": "Kimi",
+      "tags": [
+        "moe",
+        "vlm",
+        "hybrid-attn",
+        "latent-moe"
+      ],
+      "size": "K3"
+    },
+    {
+      "id": "moonshotai/Kimi-K2.7-Code",
+      "org": "Kimi",
+      "tags": [
+        "moe"
+      ],
+      "size": "K2.7-Code"
+    },
+    {
+      "id": "moonshotai/Kimi-K2.6",
+      "org": "Kimi",
+      "tags": [
+        "moe",
+        "vlm"
+      ],
+      "size": "K2.6"
+    },
+    {
+      "id": "moonshotai/Kimi-K2.5",
+      "org": "Kimi",
+      "tags": [
+        "moe"
+      ],
+      "size": "K2.5"
+    },
+    {
+      "id": "moonshotai/Kimi-K2",
+      "org": "Kimi",
+      "tags": [
+        "moe"
+      ],
+      "size": "K2"
+    },
+    {
+      "id": "openpangu/openPangu-2.0-Pro",
+      "org": "OpenPangu",
+      "tags": [
+        "moe",
+        "dsa",
+        "mhc"
+      ],
+      "size": "2.0-Pro"
+    },
+    {
+      "id": "openpangu/openPangu-2.0-Flash",
+      "org": "OpenPangu",
+      "tags": [
+        "moe",
+        "dsa",
+        "mhc"
+      ],
+      "size": "2.0-Flash"
+    },
+    {
+      "id": "zai-org/GLM-5.3-Flash",
+      "org": "GLM",
+      "tags": [
+        "moe",
+        "dsa"
+      ],
+      "size": "5.3-Flash"
+    },
+    {
+      "id": "zai-org/GLM-5.3",
+      "org": "GLM",
+      "tags": [
+        "moe",
+        "dsa"
+      ],
+      "size": "5.3"
+    },
+    {
+      "id": "zai-org/GLM-5.2",
+      "org": "GLM",
+      "tags": [
+        "moe",
+        "dsa"
+      ],
+      "size": "5.2"
+    },
+    {
+      "id": "zai-org/GLM-5.1",
+      "org": "GLM",
+      "tags": [
+        "moe",
+        "dsa"
+      ],
+      "size": "5.1"
+    },
+    {
+      "id": "zai-org/GLM-5",
+      "org": "GLM",
+      "tags": [
+        "moe",
+        "dsa"
+      ],
+      "size": "5"
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4.1-Flash",
+      "org": "DeepSeek",
+      "tags": [
+        "moe",
+        "csa-hca"
+      ],
+      "size": "V4.1-Flash"
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "org": "DeepSeek",
+      "tags": [
+        "moe",
+        "csa-hca"
+      ],
+      "size": "V4-Pro-0813"
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "org": "DeepSeek",
+      "tags": [
+        "moe",
+        "csa-hca"
+      ],
+      "size": "V4-Flash-0731"
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4-Flash",
+      "org": "DeepSeek",
+      "tags": [
+        "moe",
+        "csa-hca"
+      ],
+      "size": "Flash"
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4-Pro",
+      "org": "DeepSeek",
+      "tags": [
+        "moe",
+        "csa-hca"
+      ],
+      "size": "Pro"
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V3",
+      "org": "DeepSeek",
+      "tags": [
+        "moe"
+      ],
+      "size": "671B"
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-R1",
+      "org": "DeepSeek",
+      "tags": [
+        "moe",
+        "reasoning"
+      ],
+      "size": "671B"
+    },
+    {
+      "id": "XiaomiMiMo/MiMo-V2.6-Pro-RL",
+      "org": "Xiaomi",
+      "tags": [
+        "moe",
+        "rl"
+      ],
+      "size": "V2.6-Pro-RL"
+    },
+    {
+      "id": "XiaomiMiMo/MiMo-V2.6-Flash-RL",
+      "org": "Xiaomi",
+      "tags": [
+        "moe",
+        "rl"
+      ],
+      "size": "V2.6-Flash-RL"
+    },
+    {
+      "id": "XiaomiMiMo/MiMo-V2.5-Pro",
+      "org": "Xiaomi",
+      "tags": [
+        "moe"
+      ],
+      "size": "V2.5-Pro"
+    },
+    {
+      "id": "XiaomiMiMo/MiMo-V2.5",
+      "org": "Xiaomi",
+      "tags": [
+        "dense"
+      ],
+      "size": "V2.5"
+    },
+    {
+      "id": "meta-models/Muse-Glimmer-30B",
+      "org": "Meta",
+      "tags": [
+        "dense"
+      ],
+      "size": "30B"
+    },
+    {
+      "id": "google/gemma-4-26B-A4B-it",
+      "org": "Google",
+      "tags": [
+        "moe",
+        "instruct"
+      ],
+      "size": "26B-A4B-it"
+    },
+    {
+      "id": "google/gemma-4-E4B-it",
+      "org": "Google",
+      "tags": [
+        "dense",
+        "instruct"
+      ],
+      "size": "E4B-it"
+    },
+    {
+      "id": "google/gemma-4-E2B-it",
+      "org": "Google",
+      "tags": [
+        "dense",
+        "instruct"
+      ],
+      "size": "E2B-it"
+    },
+    {
+      "id": "google/gemma-4-31B-it",
+      "org": "Google",
+      "tags": [
+        "dense",
+        "instruct"
+      ],
+      "size": "31B-it"
+    },
+    {
+      "id": "google/gemma-4-12B-it",
+      "org": "Google",
+      "tags": [
+        "dense",
+        "instruct"
+      ],
+      "size": "12B-it"
+    },
+    {
+      "id": "gpt2",
+      "org": "OpenAI",
+      "tags": [
+        "decoder"
+      ],
+      "size": "124M"
+    }
   ]
 }
